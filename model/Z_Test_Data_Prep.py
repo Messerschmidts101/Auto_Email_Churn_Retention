@@ -1,4 +1,3 @@
-# python model/A_Data_Prep.py
 import os
 # Point to your actual Python executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
@@ -11,12 +10,10 @@ import pyspark.sql.functions as F
 import pyspark.sql.window as W
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, FloatType
 from pyspark.sql import SparkSession
-import utils
+from pyspark.ml import Pipeline
+import utils2
 
 objSpark = SparkSession.builder.getOrCreate()
-
-"""tblRaw = objSpark.read.option("header", True).csv(os.path.join('model','dataset','source.csv'))
-print(tblRaw.show())"""
 
 # Define schema
 schema = StructType([
@@ -38,12 +35,21 @@ data = [
 
 # Create DataFrame
 df = objSpark.createDataFrame(data, schema=schema)
-# Show DataFrame
 
+# Create Pipeline
+objPipeline = Pipeline(
+    stages=[
+        utils2.Disguised_Nulls_Transformer, 
+        utils2.Coerce_Type_Transformer, 
+        utils2.Imputer_Estimator # yes not Imputer_Model as estimator will return Imputer_Model
+    ]
+)
 
-objPreprocessor = utils.Preprocessing(df)
-tblResult = objPreprocessor.run_all(tblInput=df,boolVerbose=True)
-tblResult.show()
+# Fit Pipeline
+objModel = objPipeline.fit(df)
 
-print('check map')
-objPreprocessor.dictblLabelMap['Gender'].show()
+# Transform Pipeline
+df = objModel.transform(df)
+
+# Show
+df.show()

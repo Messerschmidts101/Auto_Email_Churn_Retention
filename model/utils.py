@@ -194,3 +194,4 @@ class Preprocessing:
         # Step 5. Normalize Data with normalized_col()
         self.tblResult = tblResult
         return tblResult
+    
