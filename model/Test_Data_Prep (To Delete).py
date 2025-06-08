@@ -14,7 +14,7 @@ from pyspark.sql.types import StructType, StructField, IntegerType, StringType, 
 from pyspark.sql import SparkSession
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
-import utils3
+import utils
 import pickle
 
 
@@ -37,7 +37,7 @@ schema = StructType([
 data = [
     (1, "Alice", 30, "Female", 1000.0,True),
     (2, "Bob", None, "Male", 1500.0,True),
-    (3, None, 40, None, None,True),
+    (3, "_", 40, None, None,True),
     (4, "Mike", 35, "Male", 800.0,True),
     (5, "Eve", None, "Female", 1400.0,False)
 ]
@@ -47,25 +47,27 @@ df = objSpark.createDataFrame(data, schema=schema).toPandas()
 X = df[[strColName for strColName in df.columns if strColName != 'Churn']]
 X_train, X_test, y_train, y_test = train_test_split(X, df['Churn'], test_size=0.2, random_state=42)
 
-
 # Create Pipeline
+col_names = X.columns.tolist()
 pipeline = Pipeline([
-    ('Diguised_Nulls', utils3.Disguised_Nulls_Transformer(X)),
-    ('Coerce_Type', utils3.Coerce_Type_Transformer(X)),
-    ('Imputer', utils3.Imputer_Transformer(X))
+    ('Diguised_Nulls', utils.Disguised_Nulls_Transformer(col_names, boolVerbose=True)),
+    ('Coerce_Type', utils.Coerce_Type_Transformer(col_names, boolVerbose=True)),
+    ('Imputer', utils.Imputer_Transformer(col_names, boolVerbose=True)),
+    ('Encoder', utils.Encoder_Transformer(col_names, boolVerbose=True)),
 ])
 
 # Fit Pipeline
-pipeline.fit(X_train, y_train)
+pipeline.fit(df, y_train)
 
 # Save the pipeline with pickle
-with open('pipeline.pkl', 'wb') as f:
+with open('temp_pipeline_preprocess.pkl', 'wb') as f:
     pickle.dump(pipeline, f)
 
 # Later or elsewhere: load the pipeline
-with open('pipeline.pkl', 'rb') as f:
+with open('temp_pipeline_preprocess.pkl', 'rb') as f:
     loaded_pipeline = pickle.load(f)
 
+print('finished saving')
 # Use loaded pipeline to predict on test data
 df = loaded_pipeline.transform(df)
 df = objSpark.createDataFrame(df)
