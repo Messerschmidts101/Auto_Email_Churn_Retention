@@ -154,8 +154,6 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
                 ).orderBy(
                     F.asc(strColName)
                 )
-                print('check before updating dic map')
-                tblResultMap.show()
                 self.dicMaps.update({strColName:tblResultMap.toPandas()}) # need to pandas cause it cannot be saved by pipeline
             else:
                 pass
@@ -175,9 +173,6 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
                 f'{strColName}_map',
                 'count'
             )
-        print('check maps here: ')
-        for strColName,tblMap in self.dicMaps.items():
-            objSpark.createDataFrame(tblMap).show()
 
         if self.boolVerbose:
             print('finished step 4 Encoder_Transformer()')

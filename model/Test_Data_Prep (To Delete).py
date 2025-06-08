@@ -17,7 +17,6 @@ from sklearn.model_selection import train_test_split
 import utils
 import pickle
 
-
 conf = SparkConf()
 conf.set("spark.hadoop.io.native.lib.available", "false")
 objSpark = SparkSession.builder \
