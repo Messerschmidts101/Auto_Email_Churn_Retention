@@ -14,6 +14,7 @@ os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
 os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
 
 from pyspark.sql import SparkSession
+import pyspark.sql.functions as F
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -21,6 +22,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 import utils
 import pickle
+import numpy as np
 objSpark = SparkSession.builder.getOrCreate()
 
 ########################################################
@@ -28,26 +30,41 @@ objSpark = SparkSession.builder.getOrCreate()
 #######        Step 1: Load Data Training        #######
 #######                                          #######
 ########################################################
-tblRaw = objSpark.read.option("header", True).csv(os.path.join('model','dataset','source.csv')).drop('CustomerId').toPandas()
+tblRaw = objSpark.read.option(
+    "header", 
+    True
+).csv(
+    os.path.join('model','dataset','source.csv')
+).drop(
+    'CustomerId'
+).toPandas()
+
 X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
 # Learnings:
-# 1. Customer Id are always unique
+# 1. Customer Id doesnt have duplicates
 # 2. Surname, Geo, & Gender can have duplicates
 # 3. Exited 0: 7960
 # 4. Exited 1: 2034
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+for tblTbl in [X_train, X_test]:
+    tblTbl['Row_Number'] = np.arange(len(tblTbl))
 
 ########################################################
 #######                                          #######
 #######         Step 2: Assemble Pipeline        #######
 #######                                          #######
 ########################################################
-lisstrColNamesX = X.columns.tolist()
+lisstrColNamesX = X_train.columns.tolist()
+lisstrColNamesXFinal = lisstrColNamesX + ['Age_Tenure_Ratio','Balance_Salary_Ratio']
 pipeline = Pipeline([
-    ('Diguised_Nulls', utils.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=True)),
-    ('Coerce_Type', utils.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=True)),
-    ('Imputer', utils.Imputer_Transformer(lisstrColNamesX, boolVerbose=True)),
-    ('Encoder', utils.Encoder_Transformer(lisstrColNamesX, boolVerbose=True)),
+    ('Order', utils.Order_Transformer()),
+    ('Diguised_Nulls', utils.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+    ('Coerce_Type', utils.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+    ('Imputer', utils.Imputer_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+    ('Encoder', utils.Encoder_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+    ('Age_Tenure_Ratio', utils.Age_Tenure_Ratio('Age','Tenure','Age_Tenure_Ratio', boolVerbose=True)),
+    ('Balance_Salary_Ratio', utils.Balance_Salary_Ratio('Balance','EstimatedSalary','Balance_Salary_Ratio', boolVerbose=True)),
+    ('Selecter', utils.Select_Transformer(lisstrColNamesXFinal, boolVerbose=True)),
     ('Random_Forest', RandomForestClassifier(n_estimators=100, random_state=42))
 ])
 
