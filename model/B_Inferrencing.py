@@ -7,26 +7,44 @@ os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
 os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
 # Load the pipeline (if saved via pickle)
 
+from pyspark.sql import SparkSession
+from sklearn.pipeline import Pipeline
+import pandas as pd
+import numpy as np
 import pickle
-with open('temp_pipeline_preprocess.pkl', 'rb') as f:
-    pipeline = pickle.load(f)
+import shap
 
-# Get the Random Forest model from the pipeline
-rf_model = pipeline.named_steps['Random_Forest']
+objSpark = SparkSession.builder.getOrCreate()
 
-# Get feature names after preprocessing
-encoder = pipeline.named_steps['Encoder']
-feat_names = encoder.lisstrColNames   # assuming your custom Encoder_Transformer saves final col names here
+########################################################
+#######                                          #######
+#######         Step 1: Load Data Scoring        #######
+#######                                          #######
+########################################################
+tblScoring = objSpark.read.option(
+    "header", 
+    True
+).csv(
+    os.path.join('model','dataset','scoring.csv')
+).drop(
+    'CustomerId'
+).toPandas()
+X,y = tblScoring[[strColName for strColName in tblScoring.columns if strColName != 'Exited']], tblScoring['Exited']
 
-# Get feature importances
-importances = rf_model.feature_importances_
+########################################################
+#######                                          #######
+#######            Step 2: Load Model            #######
+#######                                          #######
+########################################################
+with open('Churn_Pred_Model_With_SHAP.pkl', 'rb') as f:
+    objPipeline = pickle.load(f)
 
-# Match names to importances
-feat_importance = list(zip(feat_names, importances))
 
-# Sort and get top 5
-top_5 = sorted(feat_importance, key=lambda x: x[1], reverse=True)[:5]
-
-# Print nicely
-for i, (feat, imp) in enumerate(top_5, 1):
-    print(f"{i}. {feat}: {imp:.4f}")
+########################################################
+#######                                          #######
+#######              Step 3: Predict             #######
+#######                                          #######
+########################################################
+tblPredictions = objPipeline.transform(tblScoring)
+print('Check predictions here')
+print(tblPredictions)

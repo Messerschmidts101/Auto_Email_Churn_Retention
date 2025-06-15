@@ -5,7 +5,10 @@ from pyspark.sql.types import StringType, DoubleType
 import pyspark.sql.functions as F
 import pyspark.sql.window as W
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
 import numpy as np
+import shap
 objSpark = SparkSession.builder.getOrCreate()
 
 ########################################################
@@ -285,7 +288,7 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
     
 ########################################################
 #######                                          #######
-#######            Step 6: select_col            #######
+#######            Step 8: select_col            #######
 #######                                          #######
 ########################################################
 class Select_Transformer(BaseEstimator, TransformerMixin):
@@ -309,3 +312,40 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
             'Row_Number',
             axis=1
         )
+    
+########################################################
+#######                                          #######
+#######           Step 9: SHAP Explainer         #######
+#######                                          #######
+########################################################
+class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, objModel:RandomForestClassifier, intTopFeatCount=5):
+        self.objModel = objModel
+        self.intTopFeatCount = intTopFeatCount
+        self.objExplainer = shap.TreeExplainer(self.objModel)
+    
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        shap_values = self.objExplainer.shap_values(X)[1]  # class 1
+        predictions = self.objModel.predict(X)
+        probas = self.objModel.predict_proba(X)[:, 1]
+        try:
+            feat_names = X.columns
+        except:
+            feat_names = [f"feat_{i}" for i in range(X.shape[1])]
+        rows = []
+        for i in range(len(X)):
+            row = {
+                "Prediction": int(predictions[i]),
+                "Probability": probas[i]
+            }
+            top_idx = np.argsort(-np.abs(shap_values[i]))[:self.intTopFeatCount+1]
+            for j, idx in enumerate(top_idx):
+                row[f"TopFeat{j+1}"] = feat_names[idx]
+                row[f"SHAP{j+1}"] = shap_values[i][idx]
+            rows.append(row)
+
+        return pd.DataFrame(rows)
+    

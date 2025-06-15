@@ -1,7 +1,7 @@
-﻿CustomerId,Surname,CreditScore,Geography,Gender,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary,Exited
-15584532,Ferrer,709,France,Female,36,7,0,1,0,1,42085.58,1
-15682355,Parrone,772,Germany,Male,42,3,75075.31,2,1,0,92888.52,1
-15769959,Olaguer,597,France,Female,53,4,88381.21,1,1,0,69384.71,1
-15606229,Reoloso,771,France,Male,39,5,0,2,1,0,96270.64,0
-15569892,Cerilla,516,France,Male,35,10,57369.61,1,1,1,101699.77,0
-15628319,De Guzman,792,France,Female,28,4,130142.79,1,1,0,38190.78,0
+﻿CustomerId,Surname,CreditScore,Geography,Gender,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary,Exited,RecentSatisfactionScore
+15584532,Ferrer,709,France,Female,36,7,0,1,0,1,42085.58,1,1
+15682355,Parrone,772,Germany,Male,42,3,75075.31,2,1,0,92888.52,1,2
+15769959,Olaguer,597,France,Female,53,4,88381.21,1,1,0,69384.71,1,1
+15606229,Reoloso,771,France,Male,39,5,0,2,1,0,96270.64,0,4
+15569892,Cerilla,516,France,Male,35,10,57369.61,1,1,1,101699.77,0,3
+15628319,De Guzman,792,France,Female,28,4,130142.79,1,1,0,38190.78,0,3

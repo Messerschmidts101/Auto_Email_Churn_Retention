@@ -51,12 +51,12 @@ for tblTbl in [X_train, X_test]:
 
 ########################################################
 #######                                          #######
-#######         Step 2: Assemble Pipeline        #######
+#######      Step 2: Assemble Base Pipeline      #######
 #######                                          #######
 ########################################################
 lisstrColNamesX = X_train.columns.tolist()
 lisstrColNamesXFinal = lisstrColNamesX + ['Age_Tenure_Ratio','Balance_Salary_Ratio']
-pipeline = Pipeline([
+objPipeline = Pipeline([
     ('Order', utils.Order_Transformer()),
     ('Diguised_Nulls', utils.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
     ('Coerce_Type', utils.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
@@ -70,22 +70,41 @@ pipeline = Pipeline([
 
 ########################################################
 #######                                          #######
-#######            Step 3: Fit Pipeline          #######
+#######         Step 3: Fit Base Pipeline        #######
 #######                                          #######
 ########################################################
-pipeline.fit(X_train, y_train)
-with open('temp_pipeline_preprocess.pkl', 'wb') as f:
-    pickle.dump(pipeline, f)
+objPipeline.fit(X_train, y_train)
+with open('Churn_Pred_Model.pkl', 'wb') as f:
+    pickle.dump(objPipeline, f)
 
 ########################################################
 #######                                          #######
 #######                Step 4: Test              #######
 #######                                          #######
 ########################################################
-y_pred = pipeline.predict(X_test)
+y_pred = objPipeline.predict(X_test)
 acc = accuracy_score(y_test, y_pred)
 cm = confusion_matrix(y_test, y_pred)
 
 print(f"Accuracy: {acc:.4f}")
 print("Confusion Matrix:")
 print(cm)
+
+
+########################################################
+#######                                          #######
+#######       Step 5: Attach SHAP Explainer      #######
+#######                                          #######
+########################################################
+with open('Churn_Pred_Model.pkl', 'rb') as f:
+    objPipeline = pickle.load(f)
+    objPreprocessor = Pipeline(objPipeline.steps[:-1])  # everything except Random Forest
+    objModel = objPipeline.named_steps["Random_Forest"]
+
+super_pipeline = Pipeline([
+    ('Preprocessor', objPreprocessor),
+    ('Random_Forest_SHAP', utils.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
+])
+
+with open('Churn_Pred_Model_With_SHAP.pkl', 'wb') as f:
+    pickle.dump(super_pipeline, f)
