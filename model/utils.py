@@ -303,7 +303,7 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
         tblInputData = objSpark.createDataFrame(X)
         tblInputData = tblInputData.select(*self.lisstrColNames)
         if self.boolVerbose:
-            print('finished step 6 select_col()')
+            print('finished step 8 select_col()')
             tblInputData.show()
         return tblInputData.toPandas().sort_values(
             by = 'Row_Number',
@@ -312,7 +312,6 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
             'Row_Number',
             axis=1
         )
-    
 ########################################################
 #######                                          #######
 #######           Step 9: SHAP Explainer         #######
@@ -328,24 +327,69 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        shap_values = self.objExplainer.shap_values(X)[1]  # class 1
+        # shap values look like this:
+        # [
+        #   [ # line item 1
+        #     [0.000105, -0.000105] # feature 1
+        #     [0.003062, -0.003062] # feature 2
+        #     [0.011599, -0.011599] # feature 3
+        #     [0.005208, -0.005208] # feature 4
+        #   ]
+        #   [ # line item 2
+        #     [0.000105, -0.000105] # feature 1
+        #     [0.003062, -0.003062] # feature 2
+        #     [0.011599, -0.011599] # feature 3
+        #     [0.005208, -0.005208] # feature 4
+        #   ]
+        # ]
+        
+        shap_values = self.objExplainer.shap_values(X)  # class 1
         predictions = self.objModel.predict(X)
         probas = self.objModel.predict_proba(X)[:, 1]
-        try:
-            feat_names = X.columns
-        except:
-            feat_names = [f"feat_{i}" for i in range(X.shape[1])]
-        rows = []
-        for i in range(len(X)):
-            row = {
-                "Prediction": int(predictions[i]),
-                "Probability": probas[i]
+        lisNewPredictionRow = []
+        for intPrediction in range(len(X)):
+            dicNewPredictionRow = {
+                "Prediction": int(predictions[intPrediction]),
+                "Probability": probas[intPrediction]
             }
-            top_idx = np.argsort(-np.abs(shap_values[i]))[:self.intTopFeatCount+1]
-            for j, idx in enumerate(top_idx):
-                row[f"TopFeat{j+1}"] = feat_names[idx]
-                row[f"SHAP{j+1}"] = shap_values[i][idx]
-            rows.append(row)
-
-        return pd.DataFrame(rows)
+            ########################################################
+            #######                                          #######
+            #######       Step 1: Get SHAP Of Line Item      #######
+            #######                                          #######
+            ########################################################
+            arrSHAPItem = shap_values[intPrediction]
+            ########################################################
+            #######                                          #######
+            #######       Step 2: Index the SHAP Values      #######
+            #######                                          #######
+            ########################################################
+            arrIndices = np.arange(
+                arrSHAPItem.shape[0]
+            ).reshape(
+                -1,
+                1
+            )
+            arrSHAPItemWithIndex = np.hstack(
+                (
+                    arrIndices, 
+                    arrSHAPItem
+                )
+            )
+            ########################################################
+            #######                                          #######
+            #######       Step 3: Order the SHAP Values      #######
+            #######             by absolute value            #######
+            #######                                          #######
+            ########################################################
+            arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            ########################################################
+            #######                                          #######
+            #######    Step 4: Get top 5 features by SHAP    #######
+            #######                                          #######
+            ########################################################
+            for intFeatureIndex in range(self.intTopFeatCount):
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat'] = X.columns[int(arrSHAPItemSorted[intFeatureIndex][0])]
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_SHAP'] = arrSHAPItemSorted[intFeatureIndex][2]
+            lisNewPredictionRow.append(dicNewPredictionRow)
+        return pd.DataFrame(lisNewPredictionRow)
     

@@ -39,7 +39,6 @@ X,y = tblScoring[[strColName for strColName in tblScoring.columns if strColName 
 with open('Churn_Pred_Model_With_SHAP.pkl', 'rb') as f:
     objPipeline = pickle.load(f)
 
-
 ########################################################
 #######                                          #######
 #######              Step 3: Predict             #######
@@ -48,3 +47,6 @@ with open('Churn_Pred_Model_With_SHAP.pkl', 'rb') as f:
 tblPredictions = objPipeline.transform(tblScoring)
 print('Check predictions here')
 print(tblPredictions)
+
+print(tblPredictions.columns.tolist())
+tblPredictions.to_csv('output.csv', index=False)
