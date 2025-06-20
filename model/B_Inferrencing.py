@@ -1,10 +1,12 @@
 import os
-# Point to your actual Python executable
+# removing for docker compatability
+
+'''# Point to your actual Python executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
-os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
+os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
 # Load the pipeline (if saved via pickle)
 
 from pyspark.sql import SparkSession
@@ -25,7 +27,7 @@ tblScoring = objSpark.read.option(
     "header", 
     True
 ).csv(
-    os.path.join('model','dataset','scoring.csv')
+    os.path.join(os.getcwd(),'model','dataset','scoring.csv')
 ).drop(
     'CustomerId'
 ).toPandas()
@@ -36,7 +38,7 @@ X,y = tblScoring[[strColName for strColName in tblScoring.columns if strColName 
 #######            Step 2: Load Model            #######
 #######                                          #######
 ########################################################
-with open('Churn_Pred_Model_With_SHAP.pkl', 'rb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model_With_SHAP.pkl'), 'rb') as f:
     objPipeline = pickle.load(f)
 
 ########################################################
@@ -49,4 +51,4 @@ print('Check predictions here')
 print(tblPredictions)
 
 print(tblPredictions.columns.tolist())
-tblPredictions.to_csv('output.csv', index=False)
+tblPredictions.to_csv(os.path.join(os.getcwd(),'output.csv'), index=False)

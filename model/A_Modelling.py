@@ -5,13 +5,15 @@
 # TODO: Feature Engineering
 
 # python model/A_Data_Prep.py
+# removing for docker compatability
 import os
-# Point to your actual Python executable
+
+'''# Point to your actual Python executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
-os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
+os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
 
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
@@ -34,7 +36,7 @@ tblRaw = objSpark.read.option(
     "header", 
     True
 ).csv(
-    os.path.join('model','dataset','source.csv')
+    os.path.join(os.getcwd(),'model','dataset','source.csv')
 ).drop(
     'CustomerId'
 ).toPandas()
@@ -74,7 +76,7 @@ objPipeline = Pipeline([
 #######                                          #######
 ########################################################
 objPipeline.fit(X_train, y_train)
-with open('Churn_Pred_Model.pkl', 'wb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model.pkl'), 'wb') as f:
     pickle.dump(objPipeline, f)
 
 ########################################################
@@ -95,7 +97,7 @@ print(cm)
 #######       Step 5: Attach SHAP Explainer      #######
 #######                                          #######
 ########################################################
-with open('Churn_Pred_Model.pkl', 'rb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model.pkl'), 'rb') as f:
     objPipeline = pickle.load(f)
     objPreprocessor = Pipeline(objPipeline.steps[:-1])  # everything except Random Forest
     objModel = objPipeline.named_steps["Random_Forest"]
@@ -105,5 +107,5 @@ super_pipeline = Pipeline([
     ('Random_Forest_SHAP', utils.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
 ])
 
-with open('Churn_Pred_Model_With_SHAP.pkl', 'wb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model_With_SHAP.pkl'), 'wb') as f:
     pickle.dump(super_pipeline, f)
