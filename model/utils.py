@@ -343,6 +343,80 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
         #     [0.005208, -0.005208] # feature 4
         #   ]
         # ]
+        shap_values = self.objExplainer.shap_values(X)  # class 1
+        predictions = self.objModel.predict(X)
+        probas = self.objModel.predict_proba(X)[:, 1]
+        lisNewPredictionRow = []
+
+        for intPrediction in range(len(X)):
+            dicNewPredictionRow = {
+                "Prediction": int(predictions[intPrediction]),
+                "Probability": probas[intPrediction]
+            }
+            ########################################################
+            #######                                          #######
+            #######       Step 1: Get SHAP Of Line Item      #######
+            #######                                          #######
+            ########################################################
+            arrSHAPItem = shap_values[intPrediction]
+            ########################################################
+            #######                                          #######
+            #######       Step 2: Index the SHAP Values      #######
+            #######                                          #######
+            ########################################################
+            arrIndices = np.arange(
+                arrSHAPItem.shape[0]
+            ).reshape(
+                -1,
+                1
+            )
+            arrSHAPItemWithIndex = np.hstack(
+                (
+                    arrIndices, 
+                    arrSHAPItem.reshape(-1, 1) # Ensure arrSHAPItem is also 2D for hstack
+                )
+            )
+            ########################################################
+            #######                                          #######
+            #######       Step 3: Order the SHAP Values      #######
+            #######             by absolute value            #######
+            #######                                          #######
+            ########################################################
+            arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            # Get the current row's feature values from X
+            currentRowValues = X.iloc[intPrediction]
+
+            ########################################################
+            #######                                          #######
+            #######    Step 4: Get top 5 features by SHAP    #######
+            #######                                          #######
+            ########################################################
+            for intFeatureIndex in range(self.intTopFeatCount):
+                feat_column_index = int(arrSHAPItemSorted[intFeatureIndex][0])
+                feature_name = X.columns[feat_column_index]
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat'] = feature_name
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_SHAP'] = arrSHAPItemSorted[intFeatureIndex][1] # Corrected index for SHAP value
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_Actual_Value'] = currentRowValues[feature_name] # Add actual feature value
+            
+            lisNewPredictionRow.append(dicNewPredictionRow)
+        return pd.DataFrame(lisNewPredictionRow)
+    
+    def transform(self, X):
+        # shap values look like this:
+        # [
+        #   [ # line item 1
+        #     [0.000105, -0.000105] # feature 1
+        #     [0.003062, -0.003062] # feature 2
+        #     [0.011599, -0.011599] # feature 3
+        #     [0.005208, -0.005208] # feature 4
+        #   ]
+        #   [ # line item 2
+        #     [0.000105, -0.000105] # feature 1
+        #     [0.003062, -0.003062] # feature 2
+        #     [0.011599, -0.011599] # feature 3
+        #     [0.005208, -0.005208] # feature 4
+        #   ]
+        # ]
         
         shap_values = self.objExplainer.shap_values(X)  # class 1
         predictions = self.objModel.predict(X)
@@ -383,14 +457,17 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
             #######                                          #######
             ########################################################
             arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            
+            print(' check this : ',)
             ########################################################
             #######                                          #######
             #######    Step 4: Get top 5 features by SHAP    #######
             #######                                          #######
             ########################################################
             for intFeatureIndex in range(self.intTopFeatCount):
-                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat'] = X.columns[int(arrSHAPItemSorted[intFeatureIndex][0])]
+                strFeatName = X.columns[int(arrSHAPItemSorted[intFeatureIndex][0])]
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat'] = strFeatName
                 dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_SHAP'] = arrSHAPItemSorted[intFeatureIndex][2]
+                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_Actual_Value'] = X.loc[intPrediction, strFeatName]
             lisNewPredictionRow.append(dicNewPredictionRow)
         return pd.DataFrame(lisNewPredictionRow)
-    

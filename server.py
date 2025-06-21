@@ -9,6 +9,7 @@ import pickle
 import shap
 import os
 import sys
+
 utils_path = os.path.join(os.getcwd(), 'model')
 
 if utils_path not in sys.path:
