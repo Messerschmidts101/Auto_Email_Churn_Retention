@@ -1,12 +1,12 @@
 import os
 # removing for docker compatability
 
-'''# Point to your actual Python executable
+# Point to your actual Python executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
-os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
+os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
 # Load the pipeline (if saved via pickle)
 
 from pyspark.sql import SparkSession
