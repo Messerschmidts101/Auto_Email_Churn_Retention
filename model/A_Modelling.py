@@ -1,20 +1,14 @@
-# TODO: Ensure order of training by:
-# 1. including ordering of pandas table with index column before train test split
-# 2. including ordering of pandas table with index column every after step of transformation
-# TODO: Create transformer that test and stores record of accuracy, confusion matrix, feat importance
-# TODO: Feature Engineering
-
 # python model/A_Data_Prep.py
 # removing for docker compatability
 import os
 
 # Point to your actual Python executable
-os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
+'''os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
 os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
-
+'''
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 from sklearn.pipeline import Pipeline

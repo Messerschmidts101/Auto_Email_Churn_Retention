@@ -382,7 +382,7 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
             #######             by absolute value            #######
             #######                                          #######
             ########################################################
-            arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-arrSHAPItemWithIndex[:, 1])]
             # Get the current row's feature values from X
             currentRowValues = X.iloc[intPrediction]
 
@@ -457,8 +457,10 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
             #######                                          #######
             ########################################################
             arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            # TODO: fix shap explaienr
+            # 1. get only all large positive values if churn 
+            # 2. get only all large negative values if not churn
             
-            print(' check this : ',)
             ########################################################
             #######                                          #######
             #######    Step 4: Get top 5 features by SHAP    #######
