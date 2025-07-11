@@ -47,7 +47,6 @@ def upload_scoring():
     df = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "scoring.csv"))
     return jsonify(df.to_dict(orient="records"))
 
-
 # complete but can be improved
 @app.route('/train_model')
 def train_model():
@@ -81,7 +80,6 @@ def train_model():
 
     # Optional: jsonify for Flask
     return jsonify(dfMetrics.to_dict(orient="records"))
-
 
 @app.route('/get_model')
 def get_model():

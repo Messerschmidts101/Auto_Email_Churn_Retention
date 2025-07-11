@@ -16,9 +16,14 @@ import os
 import sys
 import requests
 import Modelling_Class
+import joblib
 
-objSpark = SparkSession.builder.getOrCreate()
-
+'''objSpark = SparkSession.builder.getOrCreate()
+objPipeline = joblib.load('New_Churn_Pred_Model_With_SHAP.pkl')
+print(type(objPipeline.named_steps))
+for key,value in objPipeline.named_steps['Preprocessor'].named_steps.items():
+    print(f'{key} : {value}')
+'''
 ########################################################
 #######                                          #######
 #######           Step 1: Train and Dump         #######
@@ -27,21 +32,22 @@ objSpark = SparkSession.builder.getOrCreate()
 objModellingClass = Modelling_Class.Modelling_Class(
         strPathTrainDataset = os.path.join(os.getcwd(),'model', 'dataset', 'train.csv')
     )
-objModellingClass.run_training()
-
-with open('churn_prediction_model.pkl', 'wb') as f:
-    pickle.dump(objModellingClass, f) 
-
+objModellingClass.run_training( 
+    boolVerbose = True 
+)
+joblib.dump(objModellingClass,'churn_prediction_model.pkl')
 
 ########################################################
 #######                                          #######
 #######           Step 2: Test and Dump          #######
 #######                                          #######
 ########################################################
-with open('churn_prediction_model.pkl', 'rb') as f:
-    objPipeline = pickle.load(f)
-scoring_path = os.path.join(os.getcwd(), "model", "dataset", "scoring.csv")
+objPipeline = joblib.load('churn_prediction_model.pkl')
 
-tblScored = objPipeline.get_predictions(strPathScoring=scoring_path)
+tblScored = objPipeline.get_predictions(
+    strPathScoring = os.path.join(os.getcwd(), "model", "dataset", "scoring.csv"),
+    strPathSavePredictions = 'output.csv',
+    boolVerbose = False,
+)
 print('Check scoring here:')
 print(tblScored)
