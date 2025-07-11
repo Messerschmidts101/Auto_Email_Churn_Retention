@@ -1,20 +1,14 @@
-# TODO: Ensure order of training by:
-# 1. including ordering of pandas table with index column before train test split
-# 2. including ordering of pandas table with index column every after step of transformation
-# TODO: Create transformer that test and stores record of accuracy, confusion matrix, feat importance
-# TODO: Feature Engineering
-
 # python model/A_Data_Prep.py
 # removing for docker compatability
 import os
 
-'''# Point to your actual Python executable
-os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
+# Point to your actual Python executable
+'''os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
-os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
-
+os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
+'''
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 from sklearn.pipeline import Pipeline
@@ -76,7 +70,7 @@ objPipeline = Pipeline([
 #######                                          #######
 ########################################################
 objPipeline.fit(X_train, y_train)
-with open(os.path.join(os.getcwd(),'Churn_Pred_Model.pkl'), 'wb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model_Basic.pkl'), 'wb') as f:
     pickle.dump(objPipeline, f)
 
 ########################################################
@@ -97,7 +91,7 @@ print(cm)
 #######       Step 5: Attach SHAP Explainer      #######
 #######                                          #######
 ########################################################
-with open(os.path.join(os.getcwd(),'Churn_Pred_Model.pkl'), 'rb') as f:
+with open(os.path.join(os.getcwd(),'Churn_Pred_Model_Basic.pkl'), 'rb') as f:
     objPipeline = pickle.load(f)
     objPreprocessor = Pipeline(objPipeline.steps[:-1])  # everything except Random Forest
     objModel = objPipeline.named_steps["Random_Forest"]
@@ -109,3 +103,4 @@ super_pipeline = Pipeline([
 
 with open(os.path.join(os.getcwd(),'Churn_Pred_Model_With_SHAP.pkl'), 'wb') as f:
     pickle.dump(super_pipeline, f)
+

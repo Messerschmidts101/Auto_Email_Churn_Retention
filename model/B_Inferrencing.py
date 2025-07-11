@@ -1,8 +1,8 @@
 import os
 # removing for docker compatability
 
-'''# Point to your actual Python executable
-os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
+# Point to your actual Python executable
+'''os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
