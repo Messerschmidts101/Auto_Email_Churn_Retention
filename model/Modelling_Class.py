@@ -44,6 +44,10 @@ class Modelling_Class():
         self.strPathTrainDataset = strPathTrainDataset 
         self.strPathModelSuper = strPathTrainedModel
         self.strPathToSaveModels = strPathToSaveModels
+        self.intCountTrainPositiveClass = None
+        self.intCountTrainNegativeClass = None
+        self.intCountTestPositiveClass = None
+        self.intCountTestNegativeClass = None
         self.fltAccuracy = None
         self.fltPrecision = None
         self.fltRecall = None
@@ -127,7 +131,11 @@ class Modelling_Class():
         self.fltRecall = rec
         self.fltF1 = f1
         self.objConfusionMatrix = cm
-
+        self.intCountTrainPositiveClass = np.bincount(y_train)[1]
+        self.intCountTrainNegativeClass = np.bincount(y_train)[0]
+        self.intCountTestPositiveClass = np.bincount(y_test)[1]
+        self.intCountTestNegativeClass = np.bincount(y_test)[0]
+        
         # Display
         print(f"Accuracy: {acc:.4f}")
         print(f"Precision: {prec:.4f}")

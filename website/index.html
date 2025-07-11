@@ -82,9 +82,11 @@
 
             <!-- Display Metrics -->
             <div style="margin-top: 1rem;">
-              <h4>Training Details:</h4>
-              <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-              </div>
+            <h4>Training Details:</h4>
+            <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+            </div>
+            <img id="loading-spinner-training-details-preview" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+        
         </div>
   
       <!-- Show Predictions -->
@@ -102,9 +104,15 @@
         <div id="uploaded-scoring-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
         </div>
         
-        <!-- Step 1: Upload -->
+        <!-- Step 2: Score -->
         <h3>Step 2: Run Inference</h3>
-        <button onclick="inferenceModel('scoring')">Upload</button>
+        <button onclick="inferenceModel('scoring')">Predict</button>
+        <!-- Display Churn Report Result --> 
+        <div style="margin-top: 1rem;">
+        <h4>Churn Report Result:</h4>
+        <div id="churn-report-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+        </div>
+        <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
 
       </div>
     </div>

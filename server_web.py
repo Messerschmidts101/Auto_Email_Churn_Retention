@@ -15,6 +15,7 @@ import shap
 import os
 import sys
 import requests
+import joblib
 
 utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
@@ -34,53 +35,60 @@ def hello():
 # complete
 @app.route('/upload_train', methods=['POST'])
 def upload_train():
-    file = request.files['file']
-    file.save(os.path.join(os.getcwd(),'model', 'dataset', 'train.csv'))
-    df = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "train.csv"))
-    return jsonify(df.to_dict(orient="records"))
+    objFile = request.files['file']
+    objFile.save(os.path.join(os.getcwd(),'model', 'dataset', 'train.csv'))
+    tblTraining = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "train.csv"))
+    return jsonify(tblTraining.to_dict(orient="records"))
 
 # complete
 @app.route('/upload_scoring', methods=['POST'])
 def upload_scoring():
-    file = request.files['file']
-    file.save(os.path.join(os.getcwd(),'model', 'dataset', 'scoring.csv'))
-    df = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "scoring.csv"))
-    return jsonify(df.to_dict(orient="records"))
+    objFile = request.files['file']
+    objFile.save(os.path.join(os.getcwd(),'model', 'dataset', 'scoring.csv'))
+    tblScoring = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "scoring.csv"))
+    return jsonify(tblScoring.to_dict(orient="records"))
 
-# complete but can be improved
+# complete
 @app.route('/train_model')
 def train_model():
-    #exec(open(os.path.join(os.getcwd(), 'model', 'A_Modelling.py')).read(), globals())
+    ########################################################
+    #######                                          #######
+    #######           Step 1: Train and Dump         #######
+    #######                                          #######
+    ########################################################
     global objGlobalModellingClass
     objModellingClass = Modelling_Class.Modelling_Class(
         strPathTrainDataset = os.path.join(os.getcwd(),'model', 'dataset', 'train.csv')
     )
     objModellingClass.run_training()
-    objGlobalModellingClass = objModellingClass
+    joblib.dump(objModellingClass,'churn_prediction_model.pkl')
+    objGlobalModellingClass = objModellingClass # update available model server side
 
-    with open('test_objModellingClass.pkl', 'wb') as f:
-        pickle.dump(objModellingClass, f) 
-
-    # Collect metrics
-    metrics = {
+    ########################################################
+    #######                                          #######
+    #######          Step 2: Collect Metrics         #######
+    #######                                          #######
+    ########################################################
+    dicMetrics = {
         "Accuracy": [objModellingClass.fltAccuracy],
         "Precision": [objModellingClass.fltPrecision],
-        "Recall": [objModellingClass.fltRecall]
+        "Recall": [objModellingClass.fltRecall],
+        "Number of Positive Class In Training": [objModellingClass.intCountTrainPositiveClass],
+        "Number of Negative Class In Training": [objModellingClass.intCountTrainNegativeClass],
+        "Number of Positive Class In Testing": [objModellingClass.intCountTestPositiveClass],
+        "Number of Negative Class In Testing": [objModellingClass.intCountTestNegativeClass],
     }
 
-    # Convert confusion matrix to separate fields
     cm = objModellingClass.objConfusionMatrix
-    metrics["True Negative"] = [cm[0][0]]
-    metrics["False Positive"] = [cm[0][1]]
-    metrics["False Negative"] = [cm[1][0]]
-    metrics["True Positive"] = [cm[1][1]]
+    dicMetrics["True Negative"] = [cm[0][0]]
+    dicMetrics["False Positive"] = [cm[0][1]]
+    dicMetrics["False Negative"] = [cm[1][0]]
+    dicMetrics["True Positive"] = [cm[1][1]]
 
-    # Create DataFrame
-    dfMetrics = pd.DataFrame(metrics)
+    tblMetrics = pd.DataFrame(dicMetrics)
+    return jsonify(tblMetrics.to_dict(orient="records"))
 
-    # Optional: jsonify for Flask
-    return jsonify(dfMetrics.to_dict(orient="records"))
-
+# not being used, unsure of this api purpose
 @app.route('/get_model')
 def get_model():
     global objGlobalModellingClass
@@ -91,24 +99,27 @@ def get_model():
 
 @app.route('/run_inference')
 def get_prediction():
-    # TODO: FIX ISSUE OF TRIGGERING TRANSFORM AND FIT DESPITE ONLY CALLING TRANSFORM()
+    
+    ########################################################
+    #######                                          #######
+    #######             Step 1: Get Model            #######
+    #######                                          #######
+    ########################################################
     global objGlobalModellingClass
     objPipeline = objGlobalModellingClass
-
     # Load the saved model object if no model is trained during session or SHAP path is missing
-    if not objPipeline or not objPipeline.strPathModelSHAP:
-        with open(os.path.join(os.getcwd(), 'test_objModellingClass.pkl'), 'rb') as f:
-            objPipeline = pickle.load(f)
+    if not objPipeline:
+        objPipeline = joblib.load('churn_prediction_model.pkl')
 
-    # Run predictions on the scoring dataset
-    scoring_path = os.path.join(os.getcwd(), "model", "dataset", "scoring.csv")
-    tblScored = objPipeline.get_predictions(strPathScoring=scoring_path)
-
-    print('Check scoring here:')
-    tblScored.show()
+    ########################################################
+    #######                                          #######
+    #######           Step 2: Run Inference          #######
+    #######                                          #######
+    ########################################################
+    strPathScoring = os.path.join(os.getcwd(), "model", "dataset", "scoring.csv")
+    tblScored = objPipeline.get_predictions(strPathScoring=strPathScoring)
 
     return jsonify(tblScored.to_dict(orient="records"))
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)

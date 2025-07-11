@@ -35,7 +35,8 @@ function uploadCSV(type) {
 
 // Train model
 function trainModel() {
-    // TODO: DISPLAY METRICS HERE
+    const spinner = document.getElementById('loading-spinner-training-details-preview');
+    spinner.style.display = 'block'; // Show spinner
     fetch('/train_model')
         .then(res => res.json())
         .then(data => {
@@ -45,21 +46,28 @@ function trainModel() {
         .catch(err => {
             console.error('Training error:', err);
             alert('Model training failed.');
-            });
+        }).finally(() => {
+            spinner.style.display = 'none'; // Hide spinner
+        });
 }
 
 // Run inference
 function inferenceModel() {
-fetch('/run_inference')
-    .then(res => res.json())
-    .then(data => {
-    alert('Inference complete.');
-    displayTable(data, 'uploaded-scoring-preview');
-    })
-    .catch(err => {
-    console.error('Inference error:', err);
-    alert('Inference failed.');
-    });
+    const spinner = document.getElementById('loading-spinner-churn-report-result');
+    spinner.style.display = 'block'; // Show spinner
+    fetch('/run_inference')
+        .then(res => res.json())
+        .then(data => {
+            alert('Inference complete.');
+            displayTable(data, 'churn-report-result');
+        })
+        .catch(err => {
+            console.error('Inference error:', err);
+            alert('Inference failed.');
+        })
+        .finally(() => {
+            spinner.style.display = 'none'; // Hide spinner
+        });
 }
 
 // Display data table
