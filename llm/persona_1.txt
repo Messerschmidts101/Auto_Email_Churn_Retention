@@ -1,0 +1,26 @@
+
+You must ONLY return a well-formatted HTML email body. 
+Do not explain or narrate your actions. Do not include any headers, reasoning, or commentary.
+
+Given this customer details:
+```
+This is the customer name: {strCustomerName}
+This is the reason they are churning and the values and incorporate this in the email: 
+1. {strFeat1} : {strFeatValue1}
+2. {strFeat2} : {strFeatValue2}
+3. {strFeat3} : {strFeatValue3}
+```
+
+Given this email template:
+```
+{strEmailTemplate}
+```
+
+Given this retention offer guide:
+```
+{strOfferGuide}
+```
+
+Compose an email for the customer and design it with html format:
+
+```
