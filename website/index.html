@@ -54,79 +54,113 @@
   </style>
 </head>
 <body>
-    <div class="sidebar">
-        <button onclick="showSection('train-section')">Train Model</button>
-        <button onclick="showSection('inference-section')">Run Inference</button>
-        <button onclick="showSection('results')">View Results</button>
+  <div class="sidebar">
+    <button onclick="showSection('train-section')">Train Model</button>
+    <button onclick="showSection('inference-section')">Run Inference</button>
+    <button onclick="showSection('results')">View Results</button>
+  </div>
+
+  <div class="main">
+    
+    <!-- Train Section -->
+    <div id="train-section" class="section">
+      <h2>Train Your Model</h2>
+
+      <h3>Step 1: Upload Training Data</h3>
+      <input type="file" id="train-file" accept=".csv" />
+      <button onclick="uploadCSV('train')">Upload</button>
+
+      <div style="margin-top: 1rem;">
+        <h4>Training Data Preview:</h4>
+        <div id="uploaded-train-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
       </div>
-  
-    <div class="main">
-      <!-- Train Your Model -->
-        <div id="train-section" class="section">
-            <h2>Train Your Model</h2>
-        
-            <!-- Step 1: Upload -->
-            <h3>Step 1: Upload Training Data</h3>
-            <input type="file" id="train-file" accept=".csv" />
-            <button onclick="uploadCSV('train')">Upload</button>
-        
-            <!-- Display Uploaded Training CSV -->
-            <div style="margin-top: 1rem;">
-            <h4>Training Data Preview:</h4>
-            <div id="uploaded-train-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-            </div>
-        
-            <!-- Step 2: Train -->
-            <h3>Step 2: Run Training</h3>
-            <button onclick="trainModel()">Train Model</button>
 
-            <!-- Display Metrics -->
-            <div style="margin-top: 1rem;">
-            <h4>Training Details:</h4>
-            <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-            </div>
-            <img id="loading-spinner-training-details-preview" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
-        
+      <h3>Step 2: Run Training</h3>
+      <button onclick="trainModel()">Train Model</button>
+      <div id="time-details"></div>
+
+      <div style="margin-top: 1rem;">
+        <h4>Training Details:</h4>
+        <div id="progress-bar-container-train" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
+          <img id="loading-spinner-training-details-preview" 
+               src="{{ url_for('static', filename='loading-spin.gif') }}" 
+               alt="Loading..." 
+               style="display: none; width: 40px;" />
+          <div style="width: 100%; background-color: #e0e0e0;">
+            <div id="progress-bar-train" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+          </div>
+          <p id="progress-label-train" style="margin: 5px 0 0 0;">0%</p>
         </div>
-  
-      <!-- Show Predictions -->
-      <div id="inference-section" class="section hidden">
-        <h2>Inference Model</h2>
-        
-        <!-- Step 1: Upload -->
-        <h3>Step 1: Upload Scoring Data</h3>
-        <input type="file" id="scoring-file" accept=".csv" />
-        <button onclick="uploadCSV('scoring')">Upload</button>
 
-        <!-- Display Uploaded Scoring CSV --> 
-        <div style="margin-top: 1rem;">
+        <h5>Dataset Details:</h5>
+        <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+
+        <h5>Metrics Details:</h5>
+        <div id="metrics-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+
+        <h5>Confusion Matrix:</h5>
+        <div id="confusion-metrix-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+      </div>
+      <h3>Step 3: Proceed To Inferencing</h3>
+      <button 
+        id="btn-proceed-inference" 
+        onclick="showSection('inference-section')" 
+        disabled 
+        style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20%"
+        title="Please complete training first"
+      >
+        Proceed To Inferencing
+      </button>
+    </div>
+
+    <!-- Inference Section -->
+    <div id="inference-section" class="section hidden">
+      <h2>Inference Model</h2>
+
+      <h3>Step 1: Upload Scoring Data</h3>
+      <input type="file" id="scoring-file" accept=".csv" />
+      <button onclick="uploadCSV('scoring')">Upload</button>
+
+      <div style="margin-top: 1rem;">
         <h4>Scoring Data Preview:</h4>
         <div id="uploaded-scoring-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+      </div>
+
+      <h3>Step 2: Run Inference</h3>
+      <button onclick="inferenceModel('scoring')">Predict</button>
+      <div id="progress-bar-container-infer" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
+        <img id="loading-spinner-training-details-preview" 
+             src="{{ url_for('static', filename='loading-spin.gif') }}" 
+             alt="Loading..." 
+             style="display: none; width: 40px;" />
+        <div style="width: 100%; background-color: #e0e0e0;">
+          <div id="progress-bar-infer" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
         </div>
-        
-        <!-- Step 2: Score -->
-        <h3>Step 2: Run Inference</h3>
-        <button onclick="inferenceModel('scoring')">Predict</button>
-        <!-- Display Churn Report Result --> 
-        <div style="margin-top: 1rem;">
+        <p id="progress-label-infer" style="margin: 5px 0 0 0;">0%</p>
+      </div>
+      <div style="margin-top: 1rem;">
         <h4>Churn Report Result:</h4>
         <div id="churn-report-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-        </div>
-        <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+      </div>
+      <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
 
-        <!-- Step 3: Create Email -->
-        <h3>Step 3: Create Emails</h3>
-        <button onclick="createEmail('scoring')">Predict</button>
-        <!-- Display Email Generation  Result --> 
-        <div style="margin-top: 1rem;">
+      <h3>Step 3: Create Emails</h3>
+      <button onclick="createEmail('scoring')">Generate</button>
+      <div style="margin-top: 1rem;">
         <h4>Email Generation Result:</h4>
         <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-        </div>
-        <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
-
       </div>
+      <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
     </div>
-  </body>
-  
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <!-- Results Section (Placeholder if needed) -->
+    <div id="results" class="section hidden">
+      <h2>Results</h2>
+      <!-- You can populate this dynamically if needed -->
+    </div>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
 </html>

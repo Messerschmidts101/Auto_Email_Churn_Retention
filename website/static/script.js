@@ -37,11 +37,51 @@ function uploadCSV(type) {
 function trainModel() {
     const spinner = document.getElementById('loading-spinner-training-details-preview');
     spinner.style.display = 'block'; // Show spinner
+    const progressBarContainer = document.getElementById('progress-bar-container-train');
+    const progressBar = document.getElementById('progress-bar-train');
+    const progressLabel = document.getElementById('progress-label-train');
+
+    // Show loading UI
+    spinner.style.display = 'block';
+    progressBarContainer.style.display = 'block';
+
+    // Start fake progress
+    let percent = 0;
+    const totalDuration = 900000; // 10 minutes in milliseconds
+    const interval = 1000;         // update every 1 second
+    const increment = 100 / (totalDuration / interval);
+
+    const timer = setInterval(() => {
+        percent = Math.min(100, percent + increment);
+        progressBar.style.width = `${percent}%`;
+        progressLabel.textContent = `${Math.floor(percent)}%`;
+    }, interval);
     fetch('/train_model')
         .then(res => res.json())
         .then(data => {
+            
+            // Conclude timer
+            clearInterval(timer);
+            percent = 100;
+            progressBar.style.width = `100%`;
+            progressLabel.textContent = `100%`;
             alert('training finished.');
-            displayTable(data, "training-details-preview");
+            spinner.style.display = 'none';
+            progressBarContainer.style.display = 'none';
+
+            // Show Tables
+            displayTable(data.samples, "training-details-preview");
+            displayTable(data.metrics, 'metrics-details-preview');
+            displayTable(data.confusion_matrix, 'confusion-metrix-details-preview');
+            document.getElementById('time-details').textContent = `Time Taken: ${data.time} seconds`;
+
+            // Enable the Step 3 button after training finishes
+            const proceedButton = document.getElementById('btn-proceed-inference');
+            proceedButton.disabled = false;
+            proceedButton.style.backgroundColor = '#4caf50';
+            proceedButton.style.cursor = 'pointer';
+            proceedButton.removeAttribute('title');
+
         })
         .catch(err => {
             console.error('Training error:', err);
@@ -54,10 +94,39 @@ function trainModel() {
 // Run inference
 function inferenceModel() {
     const spinner = document.getElementById('loading-spinner-churn-report-result');
-    spinner.style.display = 'block'; // Show spinner
+    const progressBarContainer = document.getElementById('progress-bar-container-infer');
+    const progressBar = document.getElementById('progress-bar-infer');
+    const progressLabel = document.getElementById('progress-label-infer');
+
+    // Show loading UI
+    spinner.style.display = 'block';
+    progressBarContainer.style.display = 'block';
+
+    // Start fake progress
+    let percent = 0;
+    const totalDuration = 900000; // 10 minutes in milliseconds
+    const interval = 1000;         // update every 1 second
+    const increment = 100 / (totalDuration / interval);
+
+    const timer = setInterval(() => {
+        percent = Math.min(100, percent + increment);
+        progressBar.style.width = `${percent}%`;
+        progressLabel.textContent = `${Math.floor(percent)}%`;
+    }, interval);
     fetch('/run_inference')
         .then(res => res.json())
         .then(data => {
+            
+            // Conclude timer
+            clearInterval(timer);
+            percent = 100;
+            progressBar.style.width = `100%`;
+            progressLabel.textContent = `100%`;
+            alert('training finished.');
+            spinner.style.display = 'none';
+            progressBarContainer.style.display = 'none';
+
+            // Display table
             alert('Inference complete.');
             displayTable(data, 'churn-report-result');
         })
@@ -92,8 +161,7 @@ function createEmail() {
 
 // Display data table
 function displayTable(data, targetId) {
-    const container = document.getElementById(targetId);
-    
+    const container = document.getElementById(targetId);    
     /*
     ########################################################
     #######                                          #######
