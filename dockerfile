@@ -1,35 +1,27 @@
-# Use Python 3.11 base image
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
-# Install Java (required by PySpark) and utilities
+# Install Java 17, Python 3.10+, and system dependencies
 RUN apt-get update && apt-get install -y \
-    openjdk-11-jdk \
-    wget \
-    curl \
-    unzip \
-    && apt-get clean
+    openjdk-17-jdk \
+    python3 python3-pip python3-venv \
+    build-essential \
+    git \
+    curl wget \
+    gfortran libopenblas-dev liblapack-dev \
+    llvm && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set environment variables
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
-
-# Install Hadoop (for PySpark compatibility, not to run)
-ENV HADOOP_VERSION=3.3.1
-RUN wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz && \
-    tar -xzf hadoop-${HADOOP_VERSION}.tar.gz && \
-    mv hadoop-${HADOOP_VERSION} /opt/hadoop && \
-    rm hadoop-${HADOOP_VERSION}.tar.gz
-
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV HADOOP_HOME=/opt/hadoop
-ENV PATH="${HADOOP_HOME}/bin:${PATH}"
+ENV PYSPARK_PYTHON=python3
 
-# Set work directory and copy project files
 WORKDIR /app
-COPY . .
+COPY . /app
+RUN rm -rf venv
 
-# Install dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+# Install Python dependencies
+RUN pip3 install --upgrade pip
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Default command
-CMD ["python", "server.py"]
+EXPOSE 8000
+CMD ["python3", "server.py"]

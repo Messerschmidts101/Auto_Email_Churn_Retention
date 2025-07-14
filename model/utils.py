@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 import numpy as np
 import shap
+import time
 objSpark = SparkSession.builder.getOrCreate()
 
 ########################################################
@@ -319,16 +320,18 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
 #######                                          #######
 ########################################################
 class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, objModel:RandomForestClassifier, intTopFeatCount=5):
+    def __init__(self, objModel:RandomForestClassifier, intTopFeatCount=5, boolVerbose = True):
         self.objModel = objModel
         self.intTopFeatCount = intTopFeatCount
         self.objExplainer = shap.TreeExplainer(self.objModel)
+        self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
+        
         return self
 
     def transform(self, X):
-        # shap values look like this:
+        # np3DShapValues look like this:
         # [
         #   [ # line item 1
         #     [0.000105, -0.000105] # feature 1
@@ -344,53 +347,68 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
         #   ]
         # ]
         
-        shap_values = self.objExplainer.shap_values(X)  # class 1
-        predictions = self.objModel.predict(X)
-        probas = self.objModel.predict_proba(X)[:, 1]
+        np3DShapValues = self.objExplainer.shap_values(X) 
+        np2DPredProba = self.objModel.predict_proba(X) 
+        np1DPredictions = self.objModel.predict(X) 
         lisNewPredictionRow = []
-        for intPrediction in range(len(X)):
+
+        for intIndexRow in range(len(X)):
             dicNewPredictionRow = {
-                "Prediction": int(predictions[intPrediction]),
-                "Probability": probas[intPrediction]
+                "Prediction": int(np1DPredictions[intIndexRow]),
+                "Churn_Probability": float(np2DPredProba[intIndexRow][1]) # get only proba of class 1
             }
             ########################################################
             #######                                          #######
             #######       Step 1: Get SHAP Of Line Item      #######
             #######                                          #######
             ########################################################
-            arrSHAPItem = shap_values[intPrediction]
+            np2DSHAPSpecific = np3DShapValues[intIndexRow] 
+
             ########################################################
             #######                                          #######
-            #######       Step 2: Index the SHAP Values      #######
+            #######        Step 2: Attach Index To SHAP      #######
             #######                                          #######
             ########################################################
-            arrIndices = np.arange(
-                arrSHAPItem.shape[0]
+            # create index 
+            np1DIndex = np.arange( # arrIndices -> np1DIndex
+                np2DSHAPSpecific.shape[0]
             ).reshape(
                 -1,
                 1
             )
-            arrSHAPItemWithIndex = np.hstack(
+            # attach index to shap
+            np2DSHAPSpecific = np.hstack(
                 (
-                    arrIndices, 
-                    arrSHAPItem
+                    np1DIndex, 
+                    np2DSHAPSpecific
                 )
             )
+            if self.boolVerbose:
+                print('check SHAP array here:')
+                for arrArray in np2DSHAPSpecific:
+                    print('-----')
+                    print(arrArray)
             ########################################################
             #######                                          #######
-            #######       Step 3: Order the SHAP Values      #######
-            #######             by absolute value            #######
+            #######    Step 3: Get top 5 features by SHAP    #######
             #######                                          #######
             ########################################################
-            arrSHAPItemSorted = arrSHAPItemWithIndex[np.argsort(-np.abs(arrSHAPItemWithIndex[:, 1]))]
+            # Step 1: order the shap values by descending order of value on positive class
+            np2DSHAPSpecific = np2DSHAPSpecific[np.argsort(-np2DSHAPSpecific[:, 2])] # why index 2 instead of 1? remember we attached the index on it so now the list has 3 elements instead of 2  
+            # Step 2: add top features
+            for intIndexFeature in range(self.intTopFeatCount):
+                intIndexFeatureForX = int(np2DSHAPSpecific[intIndexFeature][0])
+                strFeatureName = X.columns[intIndexFeatureForX]
+                dicNewPredictionRow[f"Top_{intIndexFeature+1}_Feat"] = strFeatureName
+                dicNewPredictionRow[f"Top_{intIndexFeature+1}_Feat_Value"] =  X.iloc[intIndexRow][strFeatureName]
+                dicNewPredictionRow[f"Top_{intIndexFeature+1}_Feat_Score"] = np2DSHAPSpecific[intIndexFeature][2]  
+
             ########################################################
             #######                                          #######
-            #######    Step 4: Get top 5 features by SHAP    #######
+            #######              Step 4: Compile             #######
             #######                                          #######
             ########################################################
-            for intFeatureIndex in range(self.intTopFeatCount):
-                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat'] = X.columns[int(arrSHAPItemSorted[intFeatureIndex][0])]
-                dicNewPredictionRow[f'Top_{intFeatureIndex+1}_Feat_SHAP'] = arrSHAPItemSorted[intFeatureIndex][2]
             lisNewPredictionRow.append(dicNewPredictionRow)
+            
         return pd.DataFrame(lisNewPredictionRow)
     
