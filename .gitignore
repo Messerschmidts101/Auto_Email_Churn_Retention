@@ -1,3 +1,6 @@
 venv
 *.pyc
 .env
+*.pkl
+*.bin
+*.sqlite3
