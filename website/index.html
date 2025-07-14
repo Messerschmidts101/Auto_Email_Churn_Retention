@@ -114,6 +114,16 @@
         </div>
         <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
 
+        <!-- Step 3: Create Email -->
+        <h3>Step 3: Create Emails</h3>
+        <button onclick="createEmail('scoring')">Predict</button>
+        <!-- Display Email Generation  Result --> 
+        <div style="margin-top: 1rem;">
+        <h4>Email Generation Result:</h4>
+        <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+        </div>
+        <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+
       </div>
     </div>
   </body>

@@ -70,9 +70,37 @@ function inferenceModel() {
         });
 }
 
+// Create Emails
+function createEmail() {
+    const spinner = document.getElementById('loading-spinner-email-generation-result'); // TODO: CHANGE THIS
+    spinner.style.display = 'block'; // Show spinner
+    fetch('/create_emails') 
+        .then(res => res.json())
+        .then(data => {
+            alert('email generation complete.');
+            displayTable(data, 'email-generation-result'); // TODO: CHANGE THIS
+        })
+        .catch(err => {
+            console.error('Email generation error:', err);
+            alert('Email generation failed.');
+        })
+        .finally(() => {
+            spinner.style.display = 'none'; // Hide spinner
+        });
+}
+
+
 // Display data table
 function displayTable(data, targetId) {
     const container = document.getElementById(targetId);
+    
+    /*
+    ########################################################
+    #######                                          #######
+    #######         Step 1: Display Table            #######
+    #######                                          #######
+    ########################################################
+    */
     container.innerHTML = '';
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -111,4 +139,47 @@ function displayTable(data, targetId) {
 
     table.appendChild(tbody);
     container.appendChild(table);
+
+    /*
+    ########################################################
+    #######                                          #######
+    #######      Step 2: Create Download Button      #######
+    #######                 of Table                 #######
+    #######                                          #######
+    ########################################################
+    */
+
+    // 1. Create the button
+    let filename = `${targetId}.csv`;
+    const button = document.createElement('button');
+    button.style.cssText = 'float: right; margin: 10px 0;'; // Button will be placed at right
+    button.textContent = 'Download Table';  // Button label
+    button.onclick = function () {
+        const header = Object.keys(data[0]);
+        const csvRows = [header.join(',')];
+
+        data.forEach(row => {
+            const values = header.map(key => 
+                `"${String(row[key]).replace(/"/g, '""')}"` // escape quotes
+            );
+            csvRows.push(values.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // 2. Append the button to the div
+    container.appendChild(document.createElement('br'));
+    container.appendChild(button);
+
+
 }
+

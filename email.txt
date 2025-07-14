@@ -1,0 +1,18 @@
+```
+<html>
+  <body>
+    <h2>Let's Stay Connected, Jane Smith</h2>
+    <p>Hi Jane Smith,</p>
+    <p>We noticed that you haven't been as satisfied with our services lately, and we're concerned that you might be considering switching to another provider. We want you to know that we value your business and would like to make things right.</p>
+    <p>At Das & Will Telco, we're committed to providing reliable connectivity, competitive pricing, and personalized service experiences. We understand that you're 60 years old and have been with us for 9 years, and we appreciate your loyalty.</p>
+    <p>We're offering you a $10 Amazon Gift Card and a direct callback to discuss any issues you're experiencing. We'd also like to invite you to fill out a quick survey to help us better understand your concerns and improve our services.</p>
+    <p>To redeem your gift card and provide your feedback, please click on the following links:</p>
+    <ul>
+      <li><a href="https://www.das_and_will_telco.com/redeem_code_now/">Redeem Code</a></li>
+      <li><a href="https://www.das_and_will_telco.com/survey_page/">Take the Survey</a></li>
+    </ul>
+    <p>Warmest regards,</p>
+    <p>Das & Will Telco Team!</p>
+  </body>
+</html>
+```
