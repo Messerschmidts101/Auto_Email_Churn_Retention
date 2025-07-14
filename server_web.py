@@ -96,24 +96,35 @@ def train_model():
     #######          Step 2: Collect Metrics         #######
     #######                                          #######
     ########################################################
-    dicMetrics = {
-        "Accuracy": [objModellingClass.fltAccuracy],
-        "Precision": [objModellingClass.fltPrecision],
-        "Recall": [objModellingClass.fltRecall],
+    
+    dicSamples = {
         "Number of Positive Class In Training": [objModellingClass.intCountTrainPositiveClass],
         "Number of Negative Class In Training": [objModellingClass.intCountTrainNegativeClass],
         "Number of Positive Class In Testing": [objModellingClass.intCountTestPositiveClass],
         "Number of Negative Class In Testing": [objModellingClass.intCountTestNegativeClass],
     }
-
+    dicMetrics = {
+        "Accuracy": [objModellingClass.fltAccuracy],
+        "Precision": [objModellingClass.fltPrecision],
+        "Recall": [objModellingClass.fltRecall],
+        "F1": [objModellingClass.fltF1]
+    }
     cm = objModellingClass.objConfusionMatrix
-    dicMetrics["True Negative"] = [cm[0][0]]
-    dicMetrics["False Positive"] = [cm[0][1]]
-    dicMetrics["False Negative"] = [cm[1][0]]
-    dicMetrics["True Positive"] = [cm[1][1]]
+    dicConfusionMatrix = {
+        "True Negative": [cm[0][0]],
+        "False Positive": [cm[0][1]],
+        "False Negative": [cm[1][0]],
+        "True Positive": [cm[1][1]],
+    }
 
     tblMetrics = pd.DataFrame(dicMetrics)
-    return jsonify(tblMetrics.to_dict(orient="records"))
+    tblSamples = pd.DataFrame(dicSamples)
+    tblConfusionMatrix = pd.DataFrame(dicConfusionMatrix)
+    return jsonify({
+        "metrics": tblMetrics.to_dict(orient="records"),
+        "samples": tblSamples.to_dict(orient="records"),
+        "confusion_matrix": tblConfusionMatrix.to_dict(orient="records"),
+    })
 
 # complete
 @app.route('/run_inference')
