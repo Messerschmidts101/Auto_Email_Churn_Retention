@@ -1,0 +1,78 @@
+===============================
+CHURN PLAYBOOK - TELECOM EDITION
+===============================
+
+===============================
+Section I - Company Context
+===============================
+
+Company Name: Das & Will Telco
+
+Das & Will Telco is a nationwide telecommunications provider serving over 20 million customers across all 50 states. With a strong commitment to innovation and customer satisfaction, we strive to offer reliable connectivity, competitive pricing, and personalized service experiences. Our services include mobile plans, broadband internet, cable TV, and enterprise connectivity. The market is highly competitive, with low switching costs and frequent promotional offers from rivals. Our mission is to proactively reduce churn using personalized messaging and timely retention offers, enabled by predictive analytics.
+
+===============================
+Section II - Writing Churn Email Template
+===============================
+
+Guidelines for effective retention emails:
+
+1. **Tone & Voice**
+   - Personal, empathetic, and proactive
+   - Reinforce value and address specific concerns
+   - Avoid sounding generic or automated
+
+2. **Structure**
+   - Greeting with name
+   - Highlight issue/reason subtly
+   - Offer resolution or incentive
+   - Strong CTA (Call to Action)
+   - Closing that invites dialogue
+
+3. Redeem and Voucher Code Format: {{Customer Name}}_D&W_{{Segment Number}}
+
+4. **Template Example**
+
+Subject: Let's Stay Connected, {{Customer Name}}
+
+Hi {{Customer Name}},
+
+{{Intro about recognizing reason for churning and being empathetic to their problems.}}
+
+{{Body about what is our company all about, and why they are important to us.}}
+
+{{Retention offer details. Do not mention what segment they are.}}
+
+Warmest regards,
+Das & Will Telco Team!
+
+===============================
+Section III - Retention Offer Strategy
+===============================
+Segment 1: New, Low Engagement
+- Trigger: Tenure < 1 year, IsActiveMember = 0
+- Offer: Free 10GB data for 3 months
+
+Segment 2: Financially Stable, Low Balance
+- Trigger: CreditScore > 700, Balance < 100
+- Offer: 10% discount voucher, locked-in rates for 12 months
+
+Segment 3: Senior Loyalists
+- Trigger: Age > 50, Tenure > 5 years
+- Offer: 12% discount voucher, priority support line
+
+Segment 4: Dissatisfied Customers
+- Trigger: RecentSatisfactionScore < 3
+- Offer: Direct callback, priority support line, $10 Amazon Gift Card
+- **CTA:** Encourage user to fill out feedback on the survey page.  
+
+Segment 5: Credit Card Inactive Users
+- Trigger: HasCrCard = 0, IsActiveMember = 1
+- Offer: 30% discount on tier upgrade
+
+===============================
+Section IV - Contact Information
+===============================
+
+1. Main Website: https://www.das_and_will_telco.com/
+2. Redeem Page: https://www.das_and_will_telco.com/redeem_code_now/
+3. Survey Page: https://www.das_and_will_telco.com/survey_page/
