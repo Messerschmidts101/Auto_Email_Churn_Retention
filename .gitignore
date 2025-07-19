@@ -1,6 +1,7 @@
 venv
-*.pyc
 .env
+*.pyc
 *.pkl
 *.bin
 *.sqlite3
+**/chroma_embeddings/

@@ -19,17 +19,17 @@ import numpy as np
 objSpark = SparkSession.builder.getOrCreate()
 
 class Modelling_Class():
-    def __init__(self, strPathTrainDataset:str, strPathTrainedModel:str = None, strPathToSaveModels:str = None):
+    def __init__(self, strPathTrainDataset:str, strPathTrainedModel:str = None, strPathToSaveModels:str = ''):
         """
         # Inputs
         1. strPathTrainDataset: string. Path to csv file to use for training in run_training().
         2. strPathTrainedModel: string. Path to trained super pipeline to use for get_predictions().
-        3. strPathToSaveModels: string. Path of directory to save models in run_training().
+        3. strPathToSaveModels: string. Path of directory to save models in run_training(). Default must be '' and not `None`, because error would occur if `None`.
 
         # Attributes
         1. strPathTrainDataset: string. Path to csv file to use for training in run_training().
         2. strPathTrainedModel: string. Path to trained super pipeline to use for get_predictions().
-        3. strPathToSaveModels: string. Path of directory to save models in run_training().
+        3. strPathToSaveModels: string. Path of directory to save models in run_training(). Default must be '' and not `None`, because error would occur if `None`.
         4. fltAccuracy: float. The recent accuracy of trained model produced from run_training().
         5. fltPrecision: float. The recent precision of trained model produced from run_training().
         6. fltRecall: float. The recent recall of trained model produced from run_training().
@@ -105,8 +105,11 @@ class Modelling_Class():
         #######                                          #######
         ########################################################
         objPipeline.fit(X_train, y_train)
-        joblib.dump(objPipeline,'New_Churn_Pred_Model_Basic.pkl')
-        self.strPathModelBasic = os.path.join(os.getcwd(),'New_Churn_Pred_Model_Basic.pkl')
+        joblib.dump(
+            objPipeline,
+            os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_Basic.pkl')
+        )
+        self.strPathModelBasic = os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_Basic.pkl')
 
         ########################################################
         #######                                          #######
@@ -155,8 +158,11 @@ class Modelling_Class():
             ('Preprocessor', objPreprocessor),
             ('Random_Forest_SHAP', utils.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
         ])
-        joblib.dump(objSuperPipeline,'New_Churn_Pred_Model_With_SHAP.pkl')
-        self.strPathModelSuper = os.path.join(os.getcwd(),'New_Churn_Pred_Model_With_SHAP.pkl')
+        joblib.dump(
+            objSuperPipeline,
+            os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_With_SHAP.pkl')
+        )
+        self.strPathModelSuper = os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_With_SHAP.pkl')
 
     def get_predictions(self,strPathScoring, strPathModelSuper:str = None, strPathSavePredictions:str=None, boolVerbose = False):
         """

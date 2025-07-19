@@ -37,18 +37,23 @@ from email.mime.text import MIMEText
 utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
     sys.path.append(utils_path)
+import server_web_config
 import utils
 import Modelling_Class
 import llm.llm_class as llm
 
 
+########################################################
+#######                                          #######
+#######             Server Constants             #######
+#######                                          #######
+########################################################
 app = Flask(__name__,template_folder='Website',static_folder='Website/static')
-
-with open(os.path.join('llm','persona_1.txt'), "r", encoding="utf-8") as file:
+with open(server_web_config.strPathPersonaLLM, "r", encoding="utf-8") as file:
     strTemplateContextResponse = file.read()
 objGlobalModellingClass = None
 objLLM = llm.LLM_Email(intLLMProvider = 1, 
-    strIngestPath = os.path.join('llm','LLM_Database','Embeddings'), 
+    strIngestPath = server_web_config.strPathStorageLLM,
     strPromptTemplate = strTemplateContextResponse, 
     strAPIKey = strAPIKey, 
     fltTemperature = 0.1, 
@@ -65,16 +70,16 @@ def hello():
 @app.route('/upload_train', methods=['POST'])
 def upload_train():
     objFile = request.files['file']
-    objFile.save(os.path.join(os.getcwd(),'model', 'dataset', 'train.csv'))
-    tblTraining = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "train.csv"))
+    objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain)) 
+    tblTraining = pd.read_csv(os.path.join(server_web_config.strPathStorageML,server_web_config.strNameCSVTrain)) 
     return jsonify(tblTraining.to_dict(orient="records"))
 
 # complete
 @app.route('/upload_scoring', methods=['POST'])
 def upload_scoring():
     objFile = request.files['file']
-    objFile.save(os.path.join(os.getcwd(),'model', 'dataset', 'scoring.csv'))
-    tblScoring = pd.read_csv(os.path.join(os.getcwd(),"model", "dataset", "scoring.csv"))
+    objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)) 
+    tblScoring = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)) 
     return jsonify(tblScoring.to_dict(orient="records"))
 
 # complete
@@ -87,11 +92,12 @@ def train_model():
     ########################################################
     global objGlobalModellingClass
     objModellingClass = Modelling_Class.Modelling_Class(
-        strPathTrainDataset = os.path.join(os.getcwd(),'model', 'dataset', 'train.csv')
+        strPathTrainDataset = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
+        strPathToSaveModels = server_web_config.strPathStorageML
     )
     timeStart = time.time()
     objModellingClass.run_training()
-    joblib.dump(objModellingClass,'churn_prediction_model.pkl')
+    joblib.dump(objModellingClass, os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
     objGlobalModellingClass = objModellingClass # update available model server side
 
     ########################################################
@@ -144,18 +150,19 @@ def get_prediction():
     objPipeline = objGlobalModellingClass
     # Load the saved model object if no model is trained during session or SHAP path is missing
     if not objPipeline:
-        objPipeline = joblib.load('churn_prediction_model.pkl')
+        objPipeline = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
+
 
     ########################################################
     #######                                          #######
     #######           Step 2: Run Inference          #######
     #######                                          #######
     ########################################################
-    strPathScoring = os.path.join(os.getcwd(), "model", "dataset", "scoring.csv")
+    strPathScoring = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)
     timeStart = time.time()
     tblScored = objPipeline.get_predictions(strPathScoring=strPathScoring)
     tblScored.to_csv(
-        os.path.join(os.getcwd(), "model", "dataset", "scored.csv"),
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored), 
         index = False
     )
     timeEnd = time.time()
@@ -168,7 +175,7 @@ def create_emails():
     def add_spaces_to_camel_case(name):
         return re.sub(r'(?<!^)(?=[A-Z])', ' ', name)
     # Step 1: open scored table
-    tblScored = pd.read_csv(os.path.join(os.getcwd(), "model", "dataset", "scored.csv"))
+    tblScored = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored)) 
     tblScored = tblScored[tblScored['Prediction'] == 0]
     lisEmailsGenerate = []
     # Step 2: pass each item as argument to llm
@@ -190,6 +197,12 @@ def create_emails():
     # Step 4: return table
     return jsonify(tblScored.to_dict(orient="records"))
 
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000)
+
+
+'''
 # complete
 @app.route('/send_emails')
 def send_emails():
@@ -200,18 +213,4 @@ def send_emails():
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login("you@gmail.com", "your_app_password")
-        server.send_message(msg)
-
-# not being used, unsure of this api purpose
-@app.route('/get_model')
-def get_model():
-    global objGlobalModellingClass
-    strPathModelSHAP = objGlobalModellingClass.strPathModelSHAP
-    with open(os.path.join(os.getcwd(), strPathModelSHAP), 'rb') as f:
-        objPipeline = pickle.load(f)
-    objPipeline
-
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+        server.send_message(msg)'''
