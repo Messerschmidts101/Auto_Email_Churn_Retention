@@ -93,7 +93,7 @@ def train_model():
     global objGlobalModellingClass
     objModellingClass = Modelling_Class.Modelling_Class(
         strPathTrainDataset = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
-
+        strPathToSaveModels = server_web_config.strPathStorageML
     )
     timeStart = time.time()
     objModellingClass.run_training()
