@@ -141,13 +141,20 @@ function inferenceModel() {
 
 // Create Emails
 function createEmail() {
-    const spinner = document.getElementById('loading-spinner-email-generation-result'); // TODO: CHANGE THIS
+    const spinner = document.getElementById('loading-spinner-email-generation-result'); 
     spinner.style.display = 'block'; // Show spinner
     fetch('/create_emails') 
         .then(res => res.json())
         .then(data => {
             alert('email generation complete.');
-            displayTable(data, 'email-generation-result'); // TODO: CHANGE THIS
+            displayTable(data, 'email-generation-result'); 
+
+            // Enable the Step 4 button after training finishes
+            const sendEmailButton = document.getElementById('btn-send-email');
+            sendEmailButton.disabled = false;
+            sendEmailButton.style.backgroundColor = '#4caf50';
+            sendEmailButton.style.cursor = 'pointer';
+            sendEmailButton.removeAttribute('title');
         })
         .catch(err => {
             console.error('Email generation error:', err);
@@ -155,6 +162,33 @@ function createEmail() {
         })
         .finally(() => {
             spinner.style.display = 'none'; // Hide spinner
+        });
+}
+
+function sendEmail() {
+    const spinner = document.getElementById('loading-spinner-send-email-result'); 
+    const btn = document.getElementById('btn-send-email');
+    const status = document.getElementById('send-email-status');
+
+    spinner.style.display = 'block'; 
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    fetch('/send_emails') 
+        .then(res => res.json())
+        .then(data => {
+            status.textContent = '✅ Emails sent successfully!';
+            status.style.color = 'green';
+        })
+        .catch(err => {
+            console.error('Email sending error:', err);
+            status.textContent = '❌ Failed to send emails.';
+            status.style.color = 'red';
+        })
+        .finally(() => {
+            spinner.style.display = 'none'; 
+            btn.textContent = 'Send Emails To All Customers';
+            btn.disabled = false;
         });
 }
 

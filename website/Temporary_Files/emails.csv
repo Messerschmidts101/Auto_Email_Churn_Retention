@@ -1,0 +1,26 @@
+CustomerId,Surname,Email,Prediction,Churn_Probability,Top_1_Feat,Top_1_Feat_Value,Top_1_Feat_Score,Top_2_Feat,Top_2_Feat_Value,Top_2_Feat_Score,Top_3_Feat,Top_3_Feat_Value,Top_3_Feat_Score,Top_4_Feat,Top_4_Feat_Value,Top_4_Feat_Score,Top_5_Feat,Top_5_Feat_Value,Top_5_Feat_Score,LLM_Response
+15584532,Ferrer,promanners@gmail.com,1,0.64,CreditScore,300.0,0.2319044175890076,RecentSatisfactionScore,1.0,0.1792289571200114,NumOfProducts,1.0,0.0448931754664502,Gender,1.0,0.0175671419425317,Balance_Salary_Ratio,0.0,0.0174624020450915,"<html>
+  <body>
+    <h2>Let's Stay Connected, Ferrer</h2>
+    <p>Hi Ferrer,</p>
+    <p>We noticed that your recent satisfaction score is 1.0 and your credit score is 300.0. We understand that these numbers might be concerning for you, and we want to assure you that we value your business and are committed to providing you with the best service possible.</p>
+    <p>At Das & Will Telco, we pride ourselves on being a customer-centric company. We believe that you are an important part of our community, and we want to ensure that you have an exceptional experience with us. We are offering you a special voucher as a token of our appreciation and commitment to your satisfaction.</p>
+    <p>We would like to offer you a <b>10% discount on your next bill</b> as a gesture of goodwill. Simply use the voucher code <b>Ferrer_D&W_1</b> when making your payment.</p>
+    <p>If you have any questions or concerns, please don't hesitate to reach out to us. We are here to listen and help in any way we can.</p>
+    <p>Warmest regards,</p>
+    <p>Das & Will Telco Team!</p>
+  </body>
+</html>"
+15769959,Olaguer,bryankmferrer@gmail.com,1,0.66,RecentSatisfactionScore,1.0,0.2906477729021843,IsActiveMember,0.0,0.0709475530309078,Surname,804.0,0.0364485751974781,Balance_Salary_Ratio,0.1857615316112152,0.0316788336176361,NumOfProducts,1.0,0.0278326089264982,"<html>
+  <body>
+    <h2>Let's Stay Connected, Olaguer</h2>
+    <p>Hi Olaguer,</p>
+    <p>We noticed that your recent satisfaction score is 1.0, and you're not an active member. We understand that this might be a sign of some concerns, and we're here to listen and help.</p>
+    <p>At Das & Will Telco, we value customers like you and want to ensure you have the best experience with us. Your loyalty and trust mean the world to us, and we're committed to making things right.</p>
+    <p>As a token of appreciation and to show you we're committed to your satisfaction, we'd like to offer you an exclusive voucher. You can redeem it by visiting our website or contacting our customer support team.</p>
+    <p><strong>Your Voucher Code: Olaguer_D&W_1</strong></p>
+    <p>We're here to help and want to ensure you have a great experience with us. If there's anything specific that's bothering you or if there's something we can do to improve, please don't hesitate to reach out.</p>
+    <p>Warmest regards,</p>
+    <p>Das & Will Telco Team!</p>
+  </body>
+</html>"

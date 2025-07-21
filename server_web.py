@@ -11,8 +11,6 @@ os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 # Your Java and Hadoop setup
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
 os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
-load_dotenv()
-strAPIKey = os.getenv("GROQ_API_KEY")
 
 ########################################################
 #######                                          #######
@@ -48,17 +46,22 @@ import llm.llm_class as llm
 #######             Server Constants             #######
 #######                                          #######
 ########################################################
-app = Flask(__name__,template_folder='Website',static_folder='Website/static')
+app = Flask(
+    __name__,
+    template_folder = 'Website',
+    static_folder = os.path.join('Website','static')
+)
 with open(server_web_config.strPathPersonaLLM, "r", encoding="utf-8") as file:
     strTemplateContextResponse = file.read()
 objGlobalModellingClass = None
+
 objLLM = llm.LLM_Email(intLLMProvider = 1, 
     strIngestPath = server_web_config.strPathStorageLLM,
     strPromptTemplate = strTemplateContextResponse, 
-    strAPIKey = strAPIKey, 
-    fltTemperature = 0.1, 
-    intRetrieverK = 5,
-    intLLMAccessory = 4,
+    strAPIKey = server_web_config.strAPILLM, 
+    fltTemperature = server_web_config.fltTemperature, 
+    intRetrieverK = server_web_config.intRetrieverK,
+    intLLMAccessory = server_web_config.intLLMAccessory,
 )
 
 # complete 
@@ -151,8 +154,6 @@ def get_prediction():
     # Load the saved model object if no model is trained during session or SHAP path is missing
     if not objPipeline:
         objPipeline = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
-
-
     ########################################################
     #######                                          #######
     #######           Step 2: Run Inference          #######
@@ -161,6 +162,14 @@ def get_prediction():
     strPathScoring = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)
     timeStart = time.time()
     tblScored = objPipeline.get_predictions(strPathScoring=strPathScoring)
+
+    ########################################################
+    #######                                          #######
+    #######      Step 3: Combine Results and PII     #######
+    #######                                          #######
+    ########################################################
+    tblScoring = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))[['CustomerId','Surname','Email']]
+    tblScored = pd.concat([tblScoring, tblScored], axis = 1)
     tblScored.to_csv(
         os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored), 
         index = False
@@ -174,14 +183,24 @@ def get_prediction():
 def create_emails():
     def add_spaces_to_camel_case(name):
         return re.sub(r'(?<!^)(?=[A-Z])', ' ', name)
-    # Step 1: open scored table
-    tblScored = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored)) 
-    tblScored = tblScored[tblScored['Prediction'] == 0]
+    
+    ########################################################
+    #######                                          #######
+    #######              Step 1: Get Data            #######
+    #######                                          #######
+    ########################################################
+    tblEmails = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored)) 
+    tblEmails = tblEmails[tblEmails['Prediction'] == 1]
     lisEmailsGenerate = []
-    # Step 2: pass each item as argument to llm
-    for intIndex, rowRow in tblScored.iterrows():
+    
+    ########################################################
+    #######                                          #######
+    #######          Step 2: Generate Email          #######
+    #######                                          #######
+    ########################################################
+    for intIndex, rowRow in tblEmails.iterrows():
         dicResult = objLLM.generate_email(
-            'John Doe',
+            rowRow['Surname'],
             add_spaces_to_camel_case(rowRow['Top_1_Feat']),
             rowRow['Top_1_Feat_Value'],
             add_spaces_to_camel_case(rowRow['Top_2_Feat']),
@@ -189,28 +208,57 @@ def create_emails():
             add_spaces_to_camel_case(rowRow['Top_3_Feat']),
             rowRow['Top_3_Feat_Value'],
         )
-        print(f'Result of Email:\n{dicResult}')
         lisEmailsGenerate.append(dicResult['Response'])
+    ########################################################
+    #######                                          #######
+    #######          Step 3: Compile Results         #######
+    #######                                          #######
+    ########################################################
+    tblEmails['LLM_Response'] = lisEmailsGenerate
+    tblEmails.to_csv(
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails), 
+        index = False
+    )
 
-    # Step 3: compile result as table
-    tblScored['LLM_Response'] = lisEmailsGenerate
-    # Step 4: return table
-    return jsonify(tblScored.to_dict(orient="records"))
+    return jsonify(tblEmails.to_dict(orient="records"))
+
+
+# complete
+@app.route('/send_emails')
+def send_emails():    
+    ########################################################
+    #######                                          #######
+    #######              Step 1: Get Data            #######
+    #######                                          #######
+    ########################################################
+    tblEmails = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails)) 
+
+    ########################################################
+    #######                                          #######
+    #######         Step 2: Indivdual Sending        #######
+    #######                                          #######
+    ########################################################
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(
+            server_web_config.strEmailUser, 
+            server_web_config.strEmailPass
+        )
+        for intIndex, rowRow in tblEmails.iterrows():
+            if (intIndex%100 == 0) and (intIndex!=0):
+                print('[[send_emails()]] Email sending limit reached. Sleeping for 5 minutes...')
+                time.sleep(300) 
+            msg = MIMEText(rowRow['LLM_Response'])
+            msg['Subject'] = server_web_config.strEmailSubject
+            msg['From'] = server_web_config.strEmailFrom
+            msg['To'] = rowRow['Email']
+            server.send_message(msg)
+            print('===== check this email sending: =====')
+            print(f"To: {rowRow['Email']}")
+            print(msg)
+            time.sleep(1) 
+
+    return "Finished"
 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
-
-
-'''
-# complete
-@app.route('/send_emails')
-def send_emails():
-    msg = MIMEText("Hello from Python!")
-    msg["Subject"] = "Test Email"
-    msg["From"] = "you@gmail.com"
-    msg["To"] = "recipient@example.com"
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login("you@gmail.com", "your_app_password")
-        server.send_message(msg)'''
