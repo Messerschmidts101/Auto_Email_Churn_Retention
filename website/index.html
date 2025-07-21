@@ -151,7 +151,21 @@
         <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
       </div>
       <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+    
+      <h3>Step 4: Send Emails</h3>
+      <img id="loading-spinner-send-email-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+      <button 
+        id="btn-send-email" 
+        onclick="sendEmail()" 
+        disabled 
+        style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20vh"
+        title="Please generate emails first"
+      >
+        Send Emails To All Customers
+      </button>
+      <p id="send-email-status" style="margin-top: 10px; font-weight: bold;"></p>
     </div>
+
 
     <!-- Results Section (Placeholder if needed) -->
     <div id="results" class="section hidden">
