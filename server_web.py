@@ -191,36 +191,72 @@ def create_emails():
     ########################################################
     tblEmails = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored)) 
     tblEmails = tblEmails[tblEmails['Prediction'] == 1]
-    lisEmailsGenerate = []
-    
+
+    lisLLMResponses = []
+    lisTop3Feats = []
+    lisTop3Values = []
+
     ########################################################
     #######                                          #######
     #######          Step 2: Generate Email          #######
     #######                                          #######
     ########################################################
-    for intIndex, rowRow in tblEmails.iterrows():
+
+    for _, row in tblEmails.iterrows():
+        # for csv output
         dicResult = objLLM.generate_email(
-            rowRow['Surname'],
-            add_spaces_to_camel_case(rowRow['Top_1_Feat']),
-            rowRow['Top_1_Feat_Value'],
-            add_spaces_to_camel_case(rowRow['Top_2_Feat']),
-            rowRow['Top_2_Feat_Value'],
-            add_spaces_to_camel_case(rowRow['Top_3_Feat']),
-            rowRow['Top_3_Feat_Value'],
+            row['Surname'],
+            add_spaces_to_camel_case(row['Top_1_Feat']),
+            row['Top_1_Feat_Value'],
+            add_spaces_to_camel_case(row['Top_2_Feat']),
+            row['Top_2_Feat_Value'],
+            add_spaces_to_camel_case(row['Top_3_Feat']),
+            row['Top_3_Feat_Value'],
         )
-        lisEmailsGenerate.append(dicResult['Response'])
+        lisLLMResponses.append(dicResult['Response'])
+
+        # for web output
+        lisTop3Feats.append([
+            add_spaces_to_camel_case(row['Top_1_Feat']),
+            add_spaces_to_camel_case(row['Top_2_Feat']),
+            add_spaces_to_camel_case(row['Top_3_Feat'])
+        ])
+        lisTop3Values.append([
+            row['Top_1_Feat_Value'],
+            row['Top_2_Feat_Value'],
+            row['Top_3_Feat_Value']
+        ])
+
     ########################################################
     #######                                          #######
     #######          Step 3: Compile Results         #######
     #######                                          #######
     ########################################################
-    tblEmails['LLM_Response'] = lisEmailsGenerate
+
+    # for csv output
+    tblEmails['LLM_Response'] = lisLLMResponses
     tblEmails.to_csv(
         os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails), 
-        index = False
+        index=False
     )
 
-    return jsonify(tblEmails.to_dict(orient="records"))
+    # for web output
+    tblTopInfo = pd.DataFrame({
+        'Top_3_Feats': lisTop3Feats,
+        'Top_3_Values': lisTop3Values
+    })
+    tblEmails2 = pd.concat([
+        tblEmails[[
+            'CustomerId',
+            'Surname',
+            'Email',
+            'Churn_Probability',
+            'LLM_Response'
+        ]],
+        tblTopInfo
+    ], axis=1)
+
+    return jsonify(tblEmails2.to_dict(orient="records"))
 
 
 # complete
@@ -256,9 +292,7 @@ def send_emails():
             print(f"To: {rowRow['Email']}")
             print(msg)
             time.sleep(1) 
-
     return "Finished"
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
