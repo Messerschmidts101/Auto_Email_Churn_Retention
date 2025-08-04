@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from server_database import db, Latest_Training
+from sqlalchemy import inspect, text
+from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
+import pandas as pd
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -25,6 +27,24 @@ def add_user():
 def get_users():
     users = Latest_Training.query.all()
     return jsonify([{'name': u.name, 'email': u.email} for u in users])
+
+@app.route('/tables')
+def get_tables():
+    inspector = inspect(db.engine)
+    table_names = inspector.get_table_names()
+    return jsonify([{'index':key,'name':val } for key,val in zip(range(len(table_names)),table_names)])
+
+
+@app.route('/table_2')
+def get_tables_2():
+    strTableName = 'historical' + '__' + 'training'
+    sql = text(f"SELECT * FROM \"{strTableName}\"")  # Quotes handle PascalCase or underscores
+    with db.engine.connect() as conn:
+        result = conn.execute(sql)
+        df = pd.DataFrame(result.mappings().all())  # Convert to DataFrame
+    
+    df = df.drop(['meta_DateCreated', 'meta_Id'], axis=1, errors='ignore')  # Drop if present
+    return jsonify(df.to_dict(orient="records"))
 
 if __name__ == '__main__':
     app.run(debug=True)

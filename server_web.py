@@ -18,7 +18,7 @@ os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"
 #######                                          #######
 ########################################################
 from flask import Flask, jsonify, render_template, request
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text
 from sqlalchemy.dialects.postgresql import insert
 import pandas as pd
 import pickle
@@ -42,7 +42,7 @@ utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
     sys.path.append(utils_path)
 import server_web_config
-from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
+from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
 import utils
 import Modelling_Class
 import llm.llm_class as llm
@@ -120,7 +120,7 @@ def upload_train():
     db.session.commit()
 
     # Step 4: Return latest table for view
-    return jsonify(tblLatestTraining.drop(['meta_DateCreated','meta_Id']).to_dict(orient="records"))
+    return jsonify(tblLatestTraining.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
 
 # complete
 @app.route('/upload_scoring', methods=['POST'])
@@ -144,7 +144,7 @@ def upload_scoring():
     db.session.commit()
 
     # Step 4: Return latest table for view
-    return jsonify(tblLatestScoring.drop(['meta_DateCreated','meta_Id']).to_dict(orient="records"))
+    return jsonify(tblLatestScoring.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
 
 # complete
 @app.route('/train_model')
@@ -194,6 +194,32 @@ def train_model():
     tblSamples = pd.DataFrame(dicSamples)
     tblConfusionMatrix = pd.DataFrame(dicConfusionMatrix)
     timeEnd = time.time()
+
+    ########################################################
+    #######                                          #######
+    #######            Step 3: Record Stats          #######
+    #######                                          #######
+    ########################################################
+    dtNow = date.today()
+    rowModel = Historical_Models(
+        meta_Id = dtNow,
+        meta_DateCreated = str(dtNow) + '_' + create_random_string(),
+        Accuracy = objModellingClass.fltAccuracy,
+        Precision = objModellingClass.fltPrecision,
+        Recall = objModellingClass.fltRecall,
+        F1 = objModellingClass.fltF1,
+        CountTrueNegative = cm[0][0],
+        CountFalsePositive = cm[0][1],
+        CountFalseNegative = cm[1][0],
+        CountTruePositiove = cm[1][1],
+        CountTrainingPositiveClass = objModellingClass.intCountTrainPositiveClass,
+        CountTrainingNegativeClass = objModellingClass.intCountTrainNegativeClass,
+        CountTestPositiveClass = objModellingClass.intCountTestPositiveClass,
+        CountTestNegativeClass = objModellingClass.intCountTestNegativeClass
+    )
+    db.session.add(rowModel)
+    db.session.commit()
+
     return jsonify({
         "samples": tblSamples.to_dict(orient="records"),
         "metrics": tblMetrics.to_dict(orient="records"),
@@ -251,7 +277,7 @@ def get_prediction():
     db.session.bulk_insert_mappings(Historical_Scored, tblScored.to_dict(orient="records"))
     db.session.commit()
 
-    return jsonify(tblScored.drop(['meta_DateCreated','meta_Id']).to_dict(orient="records"))
+    return jsonify(tblScored.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
 
 # complete
 @app.route('/create_emails')
@@ -386,6 +412,18 @@ def send_emails():
             time.sleep(1) 
     return "Finished"
 
+@app.route('/view_results',methods=['POST'])
+def view_tables():
+    data = request.get_json()
+    strTableName = data.get('strTableVersion') + '__' + data.get('strTableName')
+    with db.engine.connect() as conn:
+        sql = text(f"SELECT * FROM \"{strTableName}\"")
+        result = conn.execute(sql)
+        tblResult = pd.DataFrame(result.mappings().all())
+    return jsonify({
+        "records": tblResult.to_dict(orient='records'),
+        "row_count": len(tblResult)
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
