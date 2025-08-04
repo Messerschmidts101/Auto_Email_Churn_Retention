@@ -165,6 +165,37 @@ function createEmail() {
         });
 }
 
+// View Results
+function viewResults(){
+    const spinner = document.getElementById('loading-spinner-view-results'); 
+    const rowCountDiv = document.getElementById('view-result-result-row-count');
+    
+    const strTableName = document.getElementById('table-type').value;
+    const strTableVersion = document.getElementById('version-type').value;
+    spinner.style.display = 'block'; // Show spinner
+    fetch('/view_results', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body:JSON.stringify({
+            strTableName: strTableName,
+            strTableVersion: strTableVersion
+        })
+    }).then(res => res.json())
+      .then(data => {
+            console.log('Showing table content:')
+            console.log(strTableName)
+            console.log(strTableVersion)
+            spinner.style.display = 'none';
+            rowCountDiv.innerText = `Row count: ${data.row_count}`;
+            displayTable(data.records, 'view-result-result');
+      })
+}
+
+
+
+// Send Emails
 function sendEmail() {
     const spinner = document.getElementById('loading-spinner-send-email-result'); 
     const btn = document.getElementById('btn-send-email');
@@ -191,7 +222,6 @@ function sendEmail() {
             btn.disabled = false;
         });
 }
-
 
 // Display data table
 function displayTable(data, targetId) {
