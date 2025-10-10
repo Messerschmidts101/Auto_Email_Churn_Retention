@@ -21,14 +21,11 @@ from flask import Flask, jsonify, render_template, request
 from sqlalchemy import inspect, text
 from sqlalchemy.dialects.postgresql import insert
 import pandas as pd
-import pickle
 import sys
 import joblib
 import re
 import time
 import smtplib
-import string
-import random
 from email.mime.text import MIMEText
 from datetime import date
 from uuid import uuid4
@@ -41,55 +38,51 @@ from uuid import uuid4
 utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
     sys.path.append(utils_path)
-import server_web_config
 from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
-import utils
+import utils_models
+import utils_server
 import Modelling_Class
-import llm.llm_class as llm
+import server_web_config
 
 ########################################################
 #######                                          #######
 #######             Server Constants             #######
 #######                                          #######
 ########################################################
-with open(server_web_config.strPathPersonaLLM, "r", encoding="utf-8") as file:
-    strTemplateContextResponse = file.read()
+
+# Create Server
 app = Flask(
     __name__,
     template_folder = 'Website',
     static_folder = os.path.join('Website','static')
 )
+
+# Add Database To Server
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 with app.app_context():
     db.create_all()
-objGlobalModellingClass = None
-objLLM = llm.LLM_Email(intLLMProvider = 1, 
-    strIngestPath = server_web_config.strPathStorageLLM,
-    strPromptTemplate = strTemplateContextResponse, 
-    strAPIKey = server_web_config.strAPILLM, 
-    fltTemperature = server_web_config.fltTemperature, 
-    intRetrieverK = server_web_config.intRetrieverK,
-    intLLMAccessory = server_web_config.intLLMAccessory,
-)
 
-def create_random_string(intLength:int=12, strCharactersForRandomString = string.ascii_letters + string.digits):
-    """
-    # Input
-    1. intLength: integer. Length of random string to generate.
-    2. strCharactersForRandomString: string. Characters to be included for random string generation.
-    # Process
-    1. Generates a random string fom pool of characters defined by `strCharactersForRandomString`. The length of the random string depends on `intLength`.
-    # Output
-    1. Returns a random string. This purpose is commonly used to create unique id.
-    """
-    return ''.join(
-        random.choices(
-            strCharactersForRandomString,
-            k = intLength
-        )
-    )
+# Add LLM To Server
+objLLM = utils_server.create_llm()
+
+
+
+
+
+
+
+
+################################################################################################################
+
+                # Since we are upgrading to sql storage instead of csv storage,
+                # We must replace our reliance on read and write with csv, to sql.
+
+                
+
+
+
 
 # complete 
 @app.route('/')
