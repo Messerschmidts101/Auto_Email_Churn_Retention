@@ -8,6 +8,7 @@ db = SQLAlchemy()
 #######                                          #######
 ########################################################
 class Latest_Training(db.Model):
+    __tablename__ = 'Latest_Training'  # Required attribute to do SQL querying
     CustomerId = db.Column(db.Integer, primary_key=True)
     Surname = db.Column(db.String(50), nullable=True)
     CreditScore = db.Column(db.Integer, nullable=True)
@@ -24,6 +25,7 @@ class Latest_Training(db.Model):
     RecentSatisfactionScore = db.Column(db.Float, nullable=True)
 
 class Latest_Scoring(db.Model):
+    __tablename__ = 'Latest_Scoring' 
     CustomerId = db.Column(db.Integer, primary_key=True)
     Surname = db.Column(db.String(50), nullable=False)
     Email = db.Column(db.String(50), nullable=False)
@@ -41,6 +43,7 @@ class Latest_Scoring(db.Model):
     RecentSatisfactionScore = db.Column(db.Float, nullable=False)
 
 class Latest_Scored(db.Model):
+    __tablename__ = 'Latest_Scored' 
     CustomerId = db.Column(db.Integer, primary_key=True)
     Surname = db.Column(db.String(50), nullable=False)
     Email = db.Column(db.String(100), nullable=False)
@@ -63,6 +66,7 @@ class Latest_Scored(db.Model):
     Top_5_Feat_Score = db.Column(db.Float, nullable=False)
 
 class Latest_Emails(db.Model):
+    __tablename__ = 'Latest_Emails' 
     CustomerId = db.Column(db.Integer, primary_key=True)
     Surname = db.Column(db.String(50), nullable=False)
     Email = db.Column(db.String(100), nullable=False)
@@ -85,6 +89,7 @@ class Latest_Emails(db.Model):
 #######                                          #######
 ########################################################
 class Historical_Models(db.Model):
+    __tablename__ = 'Historical_Models' 
     meta_Id = db.Column(db.String(50), primary_key=True)
     meta_DateCreated = db.Column(db.Date, nullable=False)
     Accuracy = db.Column(db.Float, nullable=False)
@@ -101,6 +106,7 @@ class Historical_Models(db.Model):
     CountTestNegativeClass = db.Column(db.Integer, nullable=False)
 
 class Historical_Training(db.Model):
+    __tablename__ = 'Historical_Training' 
     meta_Id = db.Column(db.String(50), primary_key=True)
     meta_DateCreated = db.Column(db.Date, nullable=False)
     CustomerId = db.Column(db.Integer, nullable=False)
@@ -119,6 +125,7 @@ class Historical_Training(db.Model):
     RecentSatisfactionScore = db.Column(db.Float, nullable=True)
 
 class Historical_Scoring(db.Model):
+    __tablename__ = 'Historical_Scoring' 
     meta_Id = db.Column(db.String(50), primary_key=True)
     meta_DateCreated = db.Column(db.Date, nullable=False)
     CustomerId = db.Column(db.Integer, nullable=False)
@@ -138,6 +145,7 @@ class Historical_Scoring(db.Model):
     RecentSatisfactionScore = db.Column(db.Float, nullable=False)
 
 class Historical_Scored(db.Model):
+    __tablename__ = 'Historical_Scored' 
     meta_Id = db.Column(db.String(50), primary_key=True)
     meta_DateCreated = db.Column(db.Date, nullable=False)
     CustomerId = db.Column(db.Integer, nullable=False)
@@ -162,6 +170,7 @@ class Historical_Scored(db.Model):
     Top_5_Feat_Score = db.Column(db.Float, nullable=False)
 
 class Historical_Emails(db.Model):
+    __tablename__ = 'Historical_Emails' 
     meta_Id = db.Column(db.String(50), primary_key=True)
     meta_DateCreated = db.Column(db.Date, nullable=False)
     CustomerId = db.Column(db.Integer, nullable=False)
