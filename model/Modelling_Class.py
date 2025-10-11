@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 import os
-import model.utils_model as utils_model
+from model import utils_model
 import joblib
 import numpy as np
 objSpark = SparkSession.builder.getOrCreate()
@@ -223,4 +223,3 @@ class Modelling_Class():
             tblPredictions.to_csv(strPathSavePredictions, index=False)
         return tblPredictions
         
-

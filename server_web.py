@@ -40,8 +40,8 @@ if utils_path not in sys.path:
     sys.path.append(utils_path)
 from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
 import utils_models
-import utils_server
 import Modelling_Class
+import utils_server
 import server_web_config
 
 ########################################################
@@ -67,7 +67,10 @@ with app.app_context():
 # Add LLM To Server
 objLLM = utils_server.create_llm()
 
-
+# complete 
+@app.route('/')
+def hello():
+    return render_template('index.html')
 
 
 
@@ -84,20 +87,16 @@ objLLM = utils_server.create_llm()
 
 
 
-# complete 
-@app.route('/')
-def hello():
-    return render_template('index.html')
+
 
 # complete
 @app.route('/upload_train', methods=['POST'])
 def upload_train():
-    # Step 1: Write and Read locally
-    objFile = request.files['file']
+    # Step 1: Get dateset
+    # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
+    objFile = request.file['file']
     objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain)) 
-    tblLatestTraining = pd.read_csv(
-        os.path.join(server_web_config.strPathStorageML,server_web_config.strNameCSVTrain)
-    )
+    tblLatestTraining = pd.read_csv(objFile)
 
     # Step 2: Overwrite on database latest table
     db.session.query(Latest_Training).delete()
@@ -119,9 +118,10 @@ def upload_train():
 @app.route('/upload_scoring', methods=['POST'])
 def upload_scoring():
     # Step 1: Write and Read locally
-    objFile = request.files['file']
+    # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
+    objFile = request.file['file']
     objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)) 
-    tblLatestScoring = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)) 
+    tblLatestScoring = pd.read_csv(objFile)
     
     # Step 2: Overwrite on database latest table
     db.session.query(Latest_Scoring).delete()
@@ -147,6 +147,7 @@ def train_model():
     #######           Step 1: Train and Dump         #######
     #######                                          #######
     ########################################################
+
     global objGlobalModellingClass
     objModellingClass = Modelling_Class.Modelling_Class(
         strPathTrainDataset = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
@@ -238,39 +239,33 @@ def get_prediction():
     #######           Step 2: Run Inference          #######
     #######                                          #######
     ########################################################
-    strPathScoring = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)
     timeStart = time.time()
-    tblScored = objPipeline.get_predictions(strPathScoring=strPathScoring)
+    tblLatestScored = objPipeline.get_predictions(strPathScoring = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))
 
     ########################################################
     #######                                          #######
     #######      Step 3: Combine Results and PII     #######
     #######                                          #######
     ########################################################
-    # Step 1: Write and Read Locally
-    tblScoring = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))[['CustomerId','Surname','Email']]
-    tblScored = pd.concat([tblScoring, tblScored], axis = 1)
-    tblScored.to_csv(
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored), 
-        index = False
-    )
+    tblScoring = pd.read_sql(f"SELECT * FROM {Latest_Scoring.__tablename__}", db.engine)[['CustomerId','Surname','Email']]
+    tblLatestScored = pd.concat([tblScoring, tblLatestScored], axis = 1)
     timeEnd = time.time()
     print(f'Time taken: {timeEnd-timeStart}')
 
     # Step 2: Overwrite on database latest table
     db.session.query(Latest_Scored).delete()
     db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Scored, tblScored.to_dict(orient="records"))
+    db.session.bulk_insert_mappings(Latest_Scored, tblLatestScored.to_dict(orient="records"))
     db.session.commit()
 
     # Step 3: Append on database historical table
     dtNow = date.today()
-    tblScored['meta_DateCreated'] = dtNow
-    tblScored['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblScored))]
-    db.session.bulk_insert_mappings(Historical_Scored, tblScored.to_dict(orient="records"))
+    tblLatestScored['meta_DateCreated'] = dtNow
+    tblLatestScored['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblLatestScored))]
+    db.session.bulk_insert_mappings(Historical_Scored, tblLatestScored.to_dict(orient="records"))
     db.session.commit()
 
-    return jsonify(tblScored.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
+    return jsonify(tblLatestScored.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
 
 # complete
 @app.route('/create_emails')
@@ -283,8 +278,9 @@ def create_emails():
     #######              Step 1: Get Data            #######
     #######                                          #######
     ########################################################
-    tblEmails = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScored)) 
-    tblEmails = tblEmails[tblEmails['Prediction'] == 1]
+    
+    tblLatestScored = pd.read_sql(f"SELECT * FROM {Latest_Scored.__tablename__}", db.engine)
+    tblLatestScored = tblLatestScored[tblLatestScored['Prediction'] == 1]
 
     lisLLMResponses = []
     lisTop3Feats = []
@@ -296,7 +292,7 @@ def create_emails():
     #######                                          #######
     ########################################################
 
-    for _, row in tblEmails.iterrows():
+    for _, row in tblLatestScored.iterrows():
         # for csv output
         dicResult = objLLM.generate_email(
             row['Surname'],
@@ -326,21 +322,16 @@ def create_emails():
     #######          Step 3: Compile Results         #######
     #######                                          #######
     ########################################################
-
     # for csv output
-    tblEmails['LLM_Response'] = lisLLMResponses
-    tblEmails.to_csv(
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails), 
-        index=False
-    )
+    tblLatestScored['LLM_Response'] = lisLLMResponses
 
     # for web output
     tblTopInfo = pd.DataFrame({
         'Top_3_Feats': lisTop3Feats,
         'Top_3_Values': lisTop3Values
     })
-    tblEmails2 = pd.concat([
-        tblEmails[[
+    tblEmails = pd.concat([
+        tblLatestScored[[
             'CustomerId',
             'Surname',
             'Email',
@@ -358,17 +349,17 @@ def create_emails():
     # Step 1: Overwrite on database latest table
     db.session.query(Latest_Emails).delete()
     db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Emails, tblEmails2.to_dict(orient="records"))
+    db.session.bulk_insert_mappings(Latest_Emails, tblEmails.to_dict(orient="records"))
     db.session.commit()
 
     # Step 2: Append on database historical table
     dtNow = date.today()
-    tblEmails2['meta_DateCreated'] = dtNow
-    tblEmails2['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblEmails2))]
-    db.session.bulk_insert_mappings(Historical_Emails, tblEmails2.to_dict(orient="records"))
+    tblEmails['meta_DateCreated'] = dtNow
+    tblEmails['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblEmails))]
+    db.session.bulk_insert_mappings(Historical_Emails, tblEmails.to_dict(orient="records"))
     db.session.commit()
 
-    return jsonify(tblEmails2.to_dict(orient="records"))
+    return jsonify(tblEmails.to_dict(orient="records"))
 
 # complete
 @app.route('/send_emails')
@@ -408,7 +399,7 @@ def send_emails():
 @app.route('/view_results',methods=['POST'])
 def view_tables():
     data = request.get_json()
-    strTableName = data.get('strTableVersion') + '__' + data.get('strTableName')
+    strTableName = data.get('strTableVersion') + '_' + data.get('strTableName')
     with db.engine.connect() as conn:
         sql = text(f"SELECT * FROM \"{strTableName}\"")
         result = conn.execute(sql)
