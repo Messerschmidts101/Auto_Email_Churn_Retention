@@ -39,7 +39,7 @@ utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
     sys.path.append(utils_path)
 from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
-import utils_models
+import utils_model
 import Modelling_Class
 import utils_server
 import server_web_config
@@ -66,6 +66,14 @@ with app.app_context():
 
 # Add LLM To Server
 objLLM = utils_server.create_llm()
+
+# Add Model To Server
+try:
+    pass
+    objGlobalModellingClass = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal))
+except:
+    objGlobalModellingClass = None
+    pass
 
 # complete 
 @app.route('/')
@@ -94,9 +102,9 @@ def hello():
 def upload_train():
     # Step 1: Get dateset
     # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
-    objFile = request.file['file']
-    objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain)) 
+    objFile = request.files['file']
     tblLatestTraining = pd.read_csv(objFile)
+    tblLatestTraining.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain))
 
     # Step 2: Overwrite on database latest table
     db.session.query(Latest_Training).delete()
@@ -107,7 +115,7 @@ def upload_train():
     # Step 3: Append on database historical table
     dtNow = date.today()
     tblLatestTraining['meta_DateCreated'] = dtNow
-    tblLatestTraining['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblLatestTraining))]
+    tblLatestTraining['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestTraining))]
     db.session.bulk_insert_mappings(Historical_Training, tblLatestTraining.to_dict(orient="records"))
     db.session.commit()
 
@@ -119,9 +127,9 @@ def upload_train():
 def upload_scoring():
     # Step 1: Write and Read locally
     # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
-    objFile = request.file['file']
-    objFile.save(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring)) 
+    objFile = request.files['file']
     tblLatestScoring = pd.read_csv(objFile)
+    tblLatestScoring.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))
     
     # Step 2: Overwrite on database latest table
     db.session.query(Latest_Scoring).delete()
@@ -132,7 +140,7 @@ def upload_scoring():
     # Step 3: Append on database historical table
     dtNow = date.today()
     tblLatestScoring['meta_DateCreated'] = dtNow
-    tblLatestScoring['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblLatestScoring))]
+    tblLatestScoring['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestScoring))]
     db.session.bulk_insert_mappings(Historical_Scoring, tblLatestScoring.to_dict(orient="records"))
     db.session.commit()
 
@@ -154,9 +162,12 @@ def train_model():
         strPathToSaveModels = server_web_config.strPathStorageML
     )
     timeStart = time.time()
-    objModellingClass.run_training()
-    joblib.dump(objModellingClass, os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
-    objGlobalModellingClass = objModellingClass # update available model server side
+    objModellingClass.run_training(boolVerbose = False)
+    joblib.dump(
+        objModellingClass, 
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)
+    ) 
+    objGlobalModellingClass = objModellingClass # update available model to server side
 
     ########################################################
     #######                                          #######
@@ -196,8 +207,8 @@ def train_model():
     ########################################################
     dtNow = date.today()
     rowModel = Historical_Models(
-        meta_Id = dtNow,
-        meta_DateCreated = str(dtNow) + '_' + create_random_string(),
+        meta_Id = str(dtNow) + '_' + utils_server.create_random_string(), 
+        meta_DateCreated = dtNow,
         Accuracy = objModellingClass.fltAccuracy,
         Precision = objModellingClass.fltPrecision,
         Recall = objModellingClass.fltRecall,
@@ -261,7 +272,7 @@ def get_prediction():
     # Step 3: Append on database historical table
     dtNow = date.today()
     tblLatestScored['meta_DateCreated'] = dtNow
-    tblLatestScored['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblLatestScored))]
+    tblLatestScored['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestScored))]
     db.session.bulk_insert_mappings(Historical_Scored, tblLatestScored.to_dict(orient="records"))
     db.session.commit()
 
@@ -280,6 +291,8 @@ def create_emails():
     ########################################################
     
     tblLatestScored = pd.read_sql(f"SELECT * FROM {Latest_Scored.__tablename__}", db.engine)
+    print('YTYTY check latest scored here')
+    print(tblLatestScored)
     tblLatestScored = tblLatestScored[tblLatestScored['Prediction'] == 1]
 
     lisLLMResponses = []
@@ -341,6 +354,12 @@ def create_emails():
         tblTopInfo
     ], axis=1)
 
+    print('ZZROTT check bulk emails here')
+    print(tblLatestScored)
+    print(tblTopInfo)
+    print(tblEmails)
+
+
     ########################################################
     #######                                          #######
     #######          Step 4: Save To Database        #######
@@ -355,7 +374,7 @@ def create_emails():
     # Step 2: Append on database historical table
     dtNow = date.today()
     tblEmails['meta_DateCreated'] = dtNow
-    tblEmails['meta_Id'] = [str(dtNow) + '_' + create_random_string() for _ in range(len(tblEmails))]
+    tblEmails['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblEmails))]
     db.session.bulk_insert_mappings(Historical_Emails, tblEmails.to_dict(orient="records"))
     db.session.commit()
 
