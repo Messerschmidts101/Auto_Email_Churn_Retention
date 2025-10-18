@@ -55,6 +55,7 @@ class Modelling_Class():
         self.objConfusionMatrix = None
         self.strPathModelBasic = None
         # can never store pyspark dataframe because problem with pkl
+    
     def run_training(self, boolVerbose = True):
         ########################################################
         #######                                          #######

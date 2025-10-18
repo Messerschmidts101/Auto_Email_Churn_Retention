@@ -31,21 +31,3 @@ def create_llm() -> llm:
     )
     # Step 3: Return LLM
     return objLLM
-
-# complete
-def create_random_string(intLength:int=12, strCharactersForRandomString = string.ascii_letters + string.digits):
-    """
-    # Input
-    1. intLength: integer. Length of random string to generate.
-    2. strCharactersForRandomString: string. Characters to be included for random string generation.
-    # Process
-    1. Generates a random string fom pool of characters defined by `strCharactersForRandomString`. The length of the random string depends on `intLength`.
-    # Output
-    1. Returns a random string. This purpose is commonly used to create unique id.
-    """
-    return ''.join(
-        random.choices(
-            strCharactersForRandomString,
-            k = intLength
-        )
-    )

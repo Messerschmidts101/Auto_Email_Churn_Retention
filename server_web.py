@@ -28,7 +28,7 @@ import time
 import smtplib
 from email.mime.text import MIMEText
 from datetime import date
-from uuid import uuid4
+import uuid
 
 ########################################################
 #######                                          #######
@@ -80,24 +80,6 @@ except:
 def hello():
     return render_template('index.html')
 
-
-
-
-
-
-################################################################################################################
-
-                # Since we are upgrading to sql storage instead of csv storage,
-                # We must replace our reliance on read and write with csv, to sql.
-
-                
-
-
-
-
-
-
-# complete
 @app.route('/upload_train', methods=['POST'])
 def upload_train():
     # Step 1: Get dateset
@@ -105,22 +87,12 @@ def upload_train():
     objFile = request.files['file']
     tblLatestTraining = pd.read_csv(objFile)
     tblLatestTraining.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain))
-
     # Step 2: Overwrite on database latest table
-    db.session.query(Latest_Training).delete()
-    db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Training, tblLatestTraining.to_dict(orient="records"))
-    db.session.commit()
-
+    Latest_Training.overwrite_self(tblLatestTraining)
     # Step 3: Append on database historical table
-    dtNow = date.today()
-    tblLatestTraining['meta_DateCreated'] = dtNow
-    tblLatestTraining['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestTraining))]
-    db.session.bulk_insert_mappings(Historical_Training, tblLatestTraining.to_dict(orient="records"))
-    db.session.commit()
-
+    Latest_Training.append_historical(tblLatestTraining, Historical_Training)
     # Step 4: Return latest table for view
-    return jsonify(tblLatestTraining.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
+    return jsonify(Latest_Training.to_json())
 
 # complete
 @app.route('/upload_scoring', methods=['POST'])
@@ -130,22 +102,12 @@ def upload_scoring():
     objFile = request.files['file']
     tblLatestScoring = pd.read_csv(objFile)
     tblLatestScoring.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))
-    
     # Step 2: Overwrite on database latest table
-    db.session.query(Latest_Scoring).delete()
-    db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Scoring, tblLatestScoring.to_dict(orient="records"))
-    db.session.commit()
-
+    Latest_Scoring.overwrite_self(tblLatestScoring)
     # Step 3: Append on database historical table
-    dtNow = date.today()
-    tblLatestScoring['meta_DateCreated'] = dtNow
-    tblLatestScoring['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestScoring))]
-    db.session.bulk_insert_mappings(Historical_Scoring, tblLatestScoring.to_dict(orient="records"))
-    db.session.commit()
-
+    Latest_Scoring.append_historical(tblLatestScoring, Historical_Scoring)
     # Step 4: Return latest table for view
-    return jsonify(tblLatestScoring.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
+    return jsonify(Latest_Scoring.to_json())
 
 # complete
 @app.route('/train_model')
@@ -194,7 +156,6 @@ def train_model():
         "False Negative": [cm[1][0]],
         "True Positive": [cm[1][1]],
     }
-
     tblMetrics = pd.DataFrame(dicMetrics)
     tblSamples = pd.DataFrame(dicSamples)
     tblConfusionMatrix = pd.DataFrame(dicConfusionMatrix)
@@ -207,7 +168,7 @@ def train_model():
     ########################################################
     dtNow = date.today()
     rowModel = Historical_Models(
-        meta_Id = str(dtNow) + '_' + utils_server.create_random_string(), 
+        meta_Id =  f"{dtNow}_{uuid.uuid4()}" ,
         meta_DateCreated = dtNow,
         Accuracy = objModellingClass.fltAccuracy,
         Precision = objModellingClass.fltPrecision,
@@ -216,7 +177,7 @@ def train_model():
         CountTrueNegative = cm[0][0],
         CountFalsePositive = cm[0][1],
         CountFalseNegative = cm[1][0],
-        CountTruePositiove = cm[1][1],
+        CountTruePositive = cm[1][1],
         CountTrainingPositiveClass = objModellingClass.intCountTrainPositiveClass,
         CountTrainingNegativeClass = objModellingClass.intCountTrainNegativeClass,
         CountTestPositiveClass = objModellingClass.intCountTestPositiveClass,
@@ -245,6 +206,7 @@ def get_prediction():
     # Load the saved model object if no model is trained during session or SHAP path is missing
     if not objPipeline:
         objPipeline = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
+    
     ########################################################
     #######                                          #######
     #######           Step 2: Run Inference          #######
@@ -258,25 +220,24 @@ def get_prediction():
     #######      Step 3: Combine Results and PII     #######
     #######                                          #######
     ########################################################
-    tblScoring = pd.read_sql(f"SELECT * FROM {Latest_Scoring.__tablename__}", db.engine)[['CustomerId','Surname','Email']]
-    tblLatestScored = pd.concat([tblScoring, tblLatestScored], axis = 1)
+    # Step 3.1. Get only customer data
+    tblScoringCustomerDetails = pd.read_sql(f"SELECT * FROM {Latest_Scoring.__tablename__}", db.engine)[['CustomerId','Surname','Email']]
+    # Step 3.2. Combine customer data to master
+    tblLatestScored = pd.concat([tblScoringCustomerDetails, tblLatestScored], axis = 1)
     timeEnd = time.time()
     print(f'Time taken: {timeEnd-timeStart}')
 
-    # Step 2: Overwrite on database latest table
-    db.session.query(Latest_Scored).delete()
-    db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Scored, tblLatestScored.to_dict(orient="records"))
-    db.session.commit()
-
-    # Step 3: Append on database historical table
-    dtNow = date.today()
-    tblLatestScored['meta_DateCreated'] = dtNow
-    tblLatestScored['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblLatestScored))]
-    db.session.bulk_insert_mappings(Historical_Scored, tblLatestScored.to_dict(orient="records"))
-    db.session.commit()
-
-    return jsonify(tblLatestScored.drop(['meta_DateCreated','meta_Id'], axis=1, errors='ignore').to_dict(orient="records"))
+    ########################################################
+    #######                                          #######
+    #######        Step 4: Store Results to DB       #######
+    #######                                          #######
+    ########################################################
+    # Step 4.1: Overwrite on database latest table
+    Latest_Scored.overwrite_self(tblLatestScored)
+    # Step 4.2: Append on database historical table
+    Latest_Scored.append_historical(tblLatestScored, Historical_Scored)
+    # Step 4.3: Return latest table for view
+    return jsonify(Latest_Scored.to_json())
 
 # complete
 @app.route('/create_emails')
@@ -289,7 +250,6 @@ def create_emails():
     #######              Step 1: Get Data            #######
     #######                                          #######
     ########################################################
-    
     tblLatestScored = pd.read_sql(f"SELECT * FROM {Latest_Scored.__tablename__}", db.engine)
     print('YTYTY check latest scored here')
     print(tblLatestScored)
@@ -359,26 +319,18 @@ def create_emails():
     print(tblTopInfo)
     print(tblEmails)
 
-
     ########################################################
     #######                                          #######
     #######          Step 4: Save To Database        #######
     #######                                          #######
     ########################################################
-    # Step 1: Overwrite on database latest table
-    db.session.query(Latest_Emails).delete()
-    db.session.commit()
-    db.session.bulk_insert_mappings(Latest_Emails, tblEmails.to_dict(orient="records"))
-    db.session.commit()
+    # Step 4.1: Overwrite on database latest table
+    Latest_Emails.overwrite_self(tblEmails)
+    # Step 4.2: Append on database historical table
+    Latest_Emails.append_historical(tblEmails, Historical_Emails)
+    
+    return jsonify(Latest_Emails.to_json())
 
-    # Step 2: Append on database historical table
-    dtNow = date.today()
-    tblEmails['meta_DateCreated'] = dtNow
-    tblEmails['meta_Id'] = [str(dtNow) + '_' + utils_server.create_random_string() for _ in range(len(tblEmails))]
-    db.session.bulk_insert_mappings(Historical_Emails, tblEmails.to_dict(orient="records"))
-    db.session.commit()
-
-    return jsonify(tblEmails.to_dict(orient="records"))
 
 # complete
 @app.route('/send_emails')
