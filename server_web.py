@@ -86,7 +86,10 @@ def upload_train():
     # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
     objFile = request.files['file']
     tblLatestTraining = pd.read_csv(objFile)
-    tblLatestTraining.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain))
+    tblLatestTraining.to_csv(
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
+        index=False
+    )
     # Step 2: Overwrite on database latest table
     Latest_Training.overwrite_self(tblLatestTraining)
     # Step 3: Append on database historical table
@@ -101,7 +104,10 @@ def upload_scoring():
     # we have to unforunately save still as csv as there is no way the modelling class can ingest a db file
     objFile = request.files['file']
     tblLatestScoring = pd.read_csv(objFile)
-    tblLatestScoring.to_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))
+    tblLatestScoring.to_csv(
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring),
+        index=False
+    )
     # Step 2: Overwrite on database latest table
     Latest_Scoring.overwrite_self(tblLatestScoring)
     # Step 3: Append on database historical table
@@ -183,7 +189,7 @@ def train_model():
         CountTestPositiveClass = objModellingClass.intCountTestPositiveClass,
         CountTestNegativeClass = objModellingClass.intCountTestNegativeClass
     )
-    db.session.add(rowModel)
+    db.session.add(rowModel) # TODO: SOLVE THIS PROBLEM
     db.session.commit()
 
     return jsonify({

@@ -27,7 +27,7 @@ class Table_Functions:
         lisstrColNamesExclude = set(lisstrColNamesExclude or [])
         rows = cls.query.all()
         return [
-            row.to_dict(exclude = lisstrColNamesExclude) 
+            row.to_dict(lisstrColNamesExclude = lisstrColNamesExclude) 
             for row in rows
         ]
     
