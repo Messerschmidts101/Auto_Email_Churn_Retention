@@ -118,6 +118,11 @@ def upload_scoring():
 # complete
 @app.route('/train_model')
 def train_model():
+    # NOW TAKES ONLY 751.6286749839783 seconds
+    # 0.8709 ACCURACY
+    # 0.6149 F1
+    # 0.7715 PRECISION
+    # 0.5111 RECALL
     ########################################################
     #######                                          #######
     #######           Step 1: Train and Dump         #######
@@ -189,7 +194,7 @@ def train_model():
         CountTestPositiveClass = objModellingClass.intCountTestPositiveClass,
         CountTestNegativeClass = objModellingClass.intCountTestNegativeClass
     )
-    db.session.add(rowModel) # TODO: SOLVE THIS PROBLEM
+    db.session.add(rowModel) 
     db.session.commit()
 
     return jsonify({
@@ -257,13 +262,9 @@ def create_emails():
     #######                                          #######
     ########################################################
     tblLatestScored = pd.read_sql(f"SELECT * FROM {Latest_Scored.__tablename__}", db.engine)
-    print('YTYTY check latest scored here')
-    print(tblLatestScored)
     tblLatestScored = tblLatestScored[tblLatestScored['Prediction'] == 1]
 
     lisLLMResponses = []
-    lisTop3Feats = []
-    lisTop3Values = []
 
     ########################################################
     #######                                          #######
@@ -284,18 +285,6 @@ def create_emails():
         )
         lisLLMResponses.append(dicResult['Response'])
 
-        # for web output
-        lisTop3Feats.append([
-            add_spaces_to_camel_case(row['Top_1_Feat']),
-            add_spaces_to_camel_case(row['Top_2_Feat']),
-            add_spaces_to_camel_case(row['Top_3_Feat'])
-        ])
-        lisTop3Values.append([
-            row['Top_1_Feat_Value'],
-            row['Top_2_Feat_Value'],
-            row['Top_3_Feat_Value']
-        ])
-
     ########################################################
     #######                                          #######
     #######          Step 3: Compile Results         #######
@@ -303,27 +292,13 @@ def create_emails():
     ########################################################
     # for csv output
     tblLatestScored['LLM_Response'] = lisLLMResponses
-
-    # for web output
-    tblTopInfo = pd.DataFrame({
-        'Top_3_Feats': lisTop3Feats,
-        'Top_3_Values': lisTop3Values
-    })
-    tblEmails = pd.concat([
-        tblLatestScored[[
-            'CustomerId',
-            'Surname',
-            'Email',
-            'Churn_Probability',
-            'LLM_Response'
-        ]],
-        tblTopInfo
-    ], axis=1)
-
-    print('ZZROTT check bulk emails here')
-    print(tblLatestScored)
-    print(tblTopInfo)
-    print(tblEmails)
+    tblLatestScored = tblLatestScored[[
+        strColName for strColName in tblLatestScored.columns 
+        if strColName not in [
+            'Top_4_Feat','Top_4_Feat_Value','Top_4_Feat_Score',
+            'Top_5_Feat','Top_5_Feat_Value','Top_5_Feat_Score'
+        ]
+    ]].reset_index(drop=True)
 
     ########################################################
     #######                                          #######
@@ -331,9 +306,9 @@ def create_emails():
     #######                                          #######
     ########################################################
     # Step 4.1: Overwrite on database latest table
-    Latest_Emails.overwrite_self(tblEmails)
+    Latest_Emails.overwrite_self(tblLatestScored) #TODO: solve this
     # Step 4.2: Append on database historical table
-    Latest_Emails.append_historical(tblEmails, Historical_Emails)
+    Latest_Emails.append_historical(tblLatestScored, Historical_Emails)
     
     return jsonify(Latest_Emails.to_json())
 
@@ -346,7 +321,9 @@ def send_emails():
     #######              Step 1: Get Data            #######
     #######                                          #######
     ########################################################
-    tblEmails = pd.read_csv(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails)) 
+    tblEmails = pd.read_csv(
+        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails)
+    ) 
 
     ########################################################
     #######                                          #######
