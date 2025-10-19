@@ -406,8 +406,9 @@ class LLM_Email(LLM): # inherit llm class
         # Outputs
             1. Returns a dictionary containing the following:
                 1. 'Response': The generated HTML email from the LLM.
-                2. 'Template Used': Retrieved documents for the email template.
-                3. 'Retention Used': Retrieved documents for the retention guide.
+                2. 'Template_Used': Retrieved documents for the email template.
+                3. 'Retention_Used': Retrieved documents for the retention guide.
+                4. 'Time_To_Respond': Time it took to generate the response.
         """
         # dicContents should look like this below
         
@@ -428,7 +429,7 @@ class LLM_Email(LLM): # inherit llm class
         timeEnd = time.time()
         return {
             'Response': strResponse,
-            'Template Used': strEmailTemplate,
-            'Retention Used': strRetentionOffer,
-            'Time To Respond': timeEnd - timeStart
+            'Template_Used': strEmailTemplate,
+            'Retention_Used': strRetentionOffer,
+            'Time_To_Respond': timeEnd - timeStart
         }
