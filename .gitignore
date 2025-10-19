@@ -5,3 +5,4 @@ venv
 *.bin
 *.sqlite3
 **/chroma_embeddings/
+instance
