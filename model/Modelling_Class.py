@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 import os
-import utils
+from model import utils_model
 import joblib
 import numpy as np
 objSpark = SparkSession.builder.getOrCreate()
@@ -55,6 +55,7 @@ class Modelling_Class():
         self.objConfusionMatrix = None
         self.strPathModelBasic = None
         # can never store pyspark dataframe because problem with pkl
+    
     def run_training(self, boolVerbose = True):
         ########################################################
         #######                                          #######
@@ -88,14 +89,14 @@ class Modelling_Class():
         lisstrColNamesX = X_train.columns.tolist()
         lisstrColNamesXFinal = lisstrColNamesX + ['Age_Tenure_Ratio','Balance_Salary_Ratio']
         objPipeline = Pipeline([
-            ('Order', utils.Order_Transformer()),
-            ('Diguised_Nulls', utils.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
-            ('Coerce_Type', utils.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
-            ('Imputer', utils.Imputer_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
-            ('Encoder', utils.Encoder_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
-            ('Age_Tenure_Ratio', utils.Age_Tenure_Ratio('Age','Tenure','Age_Tenure_Ratio', boolVerbose=boolVerbose)),
-            ('Balance_Salary_Ratio', utils.Balance_Salary_Ratio('Balance','EstimatedSalary','Balance_Salary_Ratio', boolVerbose=boolVerbose)),
-            ('Selecter', utils.Select_Transformer(lisstrColNamesXFinal, boolVerbose=boolVerbose)),
+            ('Order', utils_model.Order_Transformer()),
+            ('Diguised_Nulls', utils_model.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
+            ('Coerce_Type', utils_model.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
+            ('Imputer', utils_model.Imputer_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
+            ('Encoder', utils_model.Encoder_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
+            ('Age_Tenure_Ratio', utils_model.Age_Tenure_Ratio('Age','Tenure','Age_Tenure_Ratio', boolVerbose=boolVerbose)),
+            ('Balance_Salary_Ratio', utils_model.Balance_Salary_Ratio('Balance','EstimatedSalary','Balance_Salary_Ratio', boolVerbose=boolVerbose)),
+            ('Selecter', utils_model.Select_Transformer(lisstrColNamesXFinal, boolVerbose=boolVerbose)),
             ('Random_Forest', RandomForestClassifier(n_estimators=100, random_state=42))
         ])
 
@@ -156,7 +157,7 @@ class Modelling_Class():
         objModel = objPipeline.named_steps["Random_Forest"]
         objSuperPipeline = Pipeline([
             ('Preprocessor', objPreprocessor),
-            ('Random_Forest_SHAP', utils.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
+            ('Random_Forest_SHAP', utils_model.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
         ])
         joblib.dump(
             objSuperPipeline,
@@ -223,4 +224,3 @@ class Modelling_Class():
             tblPredictions.to_csv(strPathSavePredictions, index=False)
         return tblPredictions
         
-
