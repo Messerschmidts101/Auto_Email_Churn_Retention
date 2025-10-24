@@ -1,15 +1,11 @@
 import os
-from pyspark.ml.feature import StringIndexer
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import StringType, DoubleType
-import pyspark.sql.functions as F
-import pyspark.sql.window as W
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 import numpy as np
 import shap
 import time
+from pandas import DataFrame
 objSpark = SparkSession.builder.getOrCreate()
 
 ########################################################
@@ -27,14 +23,21 @@ class Order_Transformer(BaseEstimator, TransformerMixin):
         return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
+    
 ########################################################
 #######                                          #######
 #######      Step 2: fix_disguised_null_col      #######
 #######                                          #######
 ########################################################
 class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
-    def __init__(self, lisstrColNames:list[str],lisstrDisguisedNulls:list[str]=['_','',' '], boolVerbose:bool = False, lisstrColNamesExclude:list[str]=[]):
+    def __init__(self, lisstrColNames:list[str],
+                 lisstrDisguisedNulls:list[str]=['_','',' '], 
+                 boolVerbose:bool = False, 
+                 lisstrColNamesExclude:list[str]=[]
+                 ):
         self.lisstrColNames = lisstrColNames
         self.lisstrDisguisedNulls = lisstrDisguisedNulls
         self.boolVerbose = boolVerbose
@@ -44,24 +47,21 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X:DataFrame):
-        tblInputData = objSpark.createDataFrame(X)
         for strColName in self.lisstrColNames:
             if strColName not in self.lisstrColNamesExclude:
-                tblInputData = tblInputData.withColumn(
-                    strColName,
-                    F.when(
-                        F.col(strColName).isin(self.lisstrDisguisedNulls),
-                        F.lit(None)
-                    ).otherwise(
-                        F.col(strColName)
-                    )
+                X[strColName] = X[strColName].apply(
+                    lambda cell_value: 
+                        None if cell_value in self.lisstrDisguisedNulls 
+                        else cell_value
                 )
         if self.boolVerbose:
             print('finished step 2 Disguised_Nulls_Transformer()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
     
 ########################################################
@@ -70,36 +70,56 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
 #######                                          #######
 ########################################################
 class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
-    def __init__(self, lisstrColNames:list[str], boolVerbose:bool = False, lisstrColNamesExclude:list[str]=[]):
+    def __init__(self, lisstrColNames:list[str], 
+                 boolVerbose:bool = False,
+                 lisstrColNamesExclude:list[str]=[], 
+                 dicCoerce:dict={}):
+        """
+        # Input
+        1. lisstrColNames : list of str. List of column names to attempt type coercion on.
+        2. boolVerbose : bool, optional (default=False). If True, prints detailed progress information during transformation.
+        3. lisstrColNamesExclude : list of str, optional (default=None). List of column names to exclude from coercion, even if present in `lisstrColNames`.
+        4. dicCoerce : dict of {str: str}, optional (default=None). Mapping of column names to desired target data types. Supported type values:
+            - `'object'`
+            - `'string'`
+            - `'int64'`
+            - `'float64'`
+            - `'datetime64'`
+            - `'timedelta64'`
+            - `'bool'`
+        """
         self.lisstrColNames = lisstrColNames
         self.boolVerbose = boolVerbose
         self.lisstrColNamesExclude = lisstrColNamesExclude
+        self.dicCoerce = dicCoerce
+
     def fit(self, X, y=None):
         return self
 
     def transform(self, X:DataFrame):
-        tblInputData = objSpark.createDataFrame(X)
+        lisstrColNamesExcludeLocal = self.lisstrColNamesExclude
+        if not self.dicCoerce == {}:
+            lisstrColNamesExcludeLocal.extend([strColName for strColName in self.dicCoerce.keys()])
+
+        # Step 1: Attempt to make everything numerical
         for strColName in self.lisstrColNames:
-            if strColName not in self.lisstrColNamesExclude:
-                intBefore = tblInputData.filter(
-                    F.col(strColName).isNotNull()
-                ).count()
-                intAfter = tblInputData.filter(
-                    F.col(strColName).cast("int").isNotNull()
-                ).count()
-                if intBefore > intAfter:
-                    continue
-                else: 
-                    tblInputData = tblInputData.withColumn(
-                        strColName,
-                        F.col(strColName).cast('double')
-                    )
+            if strColName not in lisstrColNamesExcludeLocal:
+                X[strColName] = pd.to_numeric(
+                    X[strColName],
+                    errors='ignore'
+                )
+        # Step 2: Apply user-defined coercion
+        for strColName, strDataType in self.dicCoerce.items():
+            X[strColName] = X[strColName].astype(strDataType)
+        
         if self.boolVerbose:
             print('finished step 3 coerce_col_type()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
         
 ########################################################
@@ -156,10 +176,12 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 4 Imputer_Transformer()')
             print(self.dicImpute)
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
     
 ########################################################
@@ -212,10 +234,12 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
 
         if self.boolVerbose:
             print('finished step 5 Encoder_Transformer()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
     
 ########################################################
@@ -247,10 +271,12 @@ class Age_Tenure_Ratio(BaseEstimator, TransformerMixin):
 
         if self.boolVerbose:
             print('finished step 6 Age_Tenure_Ratio()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
     
 ########################################################
@@ -281,10 +307,12 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
         )
         if self.boolVerbose:
             print('finished step 7 Balance_Salary_Ratio()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         )
     
 ########################################################
@@ -305,10 +333,12 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
         tblInputData = tblInputData.select(*self.lisstrColNames)
         if self.boolVerbose:
             print('finished step 8 select_col()')
-            tblInputData.show()
-        return tblInputData.toPandas().sort_values(
+            print(X.head())
+        return X.sort_values(
             by = 'Row_Number',
             ascending = True
+        ).sort_values(
+            axis = 1
         ).drop(
             'Row_Number',
             axis=1
@@ -327,7 +357,6 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
-        
         return self
 
     def transform(self, X):

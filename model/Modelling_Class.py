@@ -5,9 +5,6 @@ os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
 os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
 os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
 
-
-from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
@@ -16,7 +13,7 @@ import os
 from model import utils_model
 import joblib
 import numpy as np
-objSpark = SparkSession.builder.getOrCreate()
+import pandas as pd
 
 class Modelling_Class():
     def __init__(self, strPathTrainDataset:str, strPathTrainedModel:str = None, strPathToSaveModels:str = ''):
@@ -62,22 +59,24 @@ class Modelling_Class():
         #######        Step 1: Load Data Training        #######
         #######                                          #######
         ########################################################
-        tblRaw = objSpark.read.option(
-            "header", 
-            True
-        ).csv(
-            self.strPathTrainDataset
-        ).drop(
-            'CustomerId'
-        ).toPandas()
-
-        X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
         # Learnings:
         # 1. Customer Id doesnt have duplicates
         # 2. Surname, Geo, & Gender can have duplicates
         # 3. Exited 0: 7960
         # 4. Exited 1: 2034
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        tblRaw = pd.read_csv(
+            self.strPathTrainDataset
+        ).drop(
+            'CustomerId', 
+            axis='columns'
+        )
+        X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, 
+            y, 
+            test_size=0.2, 
+            random_state=42
+        )
         for tblTbl in [X_train, X_test]:
             tblTbl['Row_Number'] = np.arange(len(tblTbl))
 
