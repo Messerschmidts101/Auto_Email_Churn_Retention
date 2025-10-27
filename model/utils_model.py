@@ -7,7 +7,11 @@ import shap
 import time
 from pandas import DataFrame, Series
 from pandas.api.types import is_numeric_dtype, is_string_dtype, is_bool_dtype
-objSpark = SparkSession.builder.getOrCreate()
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+import joblib
+
 
 ########################################################
 #######                                          #######
@@ -206,6 +210,7 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
     def fit(self, X:DataFrame, y=None):
         # generate dictionary of column name and mapping values
         X = X.copy()
+        X['Row_Number_Temporary'] = X['Row_Number']
         for strColName in self.lisstrColNames:
             if strColName not in self.lisstrColNamesExclude:
                 if is_string_dtype(X[strColName]):
@@ -213,9 +218,9 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
                         tblMappingValues = X.groupby(
                             strColName
                         ).agg(
-                            {'Row_Number':'count'}
+                            {'Row_Number_Temporary':'count'}
                         ).sort_values(
-                            by = 'Row_Number',
+                            by = 'Row_Number_Temporary',
                             ascending = self.boolAscending
                         ).reset_index()
                         tblMappingValues['Label'] = np.arange(len(tblMappingValues))
@@ -223,14 +228,14 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
                         tblMappingValues = X.groupby(
                             strColName
                         ).agg(
-                            {'Row_Number':'count'}
+                            {'Row_Number_Temporary':'count'}
                         ).sort_values(
                             by = strColName,
                             ascending = self.boolAscending
                         )
                         tblMappingValues['Label'] = np.arange(len(tblMappingValues))
                         tblMappingValues = tblMappingValues.drop(
-                            'Row_Number',
+                            'Row_Number_Temporary',
                             axis = 1
                         ).reset_index()
                     self.dicMaps.update({strColName:tblMappingValues})
@@ -277,17 +282,12 @@ class Age_Tenure_Ratio(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X:DataFrame):
-        tblInputData = objSpark.createDataFrame(X)
-        tblInputData = tblInputData.withColumn(
-            self.strColNameAgeTenureRatio,
-            F.when(
-                F.col(self.strColNameTenure) == 0,
-                F.lit(0)
-            ).otherwise(
-                F.col(self.strColNameAge) / F.col(self.strColNameTenure)
-            )
+        X = X.copy()
+        X[self.strColNameAgeTenureRatio] = np.where(
+            X[self.strColNameTenure] == 0,                      # condition
+            0,                                                  # output this value if True
+            X[self.strColNameAge] / X[self.strColNameTenure]    # output this value if False
         )
-
         if self.boolVerbose:
             print('finished step 6 Age_Tenure_Ratio()')
             print(X.head(100))
@@ -312,15 +312,11 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X:DataFrame):
-        tblInputData = objSpark.createDataFrame(X)
-        tblInputData = tblInputData.withColumn(
-            self.strColNameBalanceSalaryRatio,
-            F.when(
-                F.col(self.strColNameSalary) == 0,
-                F.lit(0)
-            ).otherwise(
-                F.col(self.strColNameBalance) / F.col(self.strColNameSalary)
-            )
+        X = X.copy()
+        X[self.strColNameBalanceSalaryRatio] = np.where(
+            X[self.strColNameSalary] == 0,                          # condition
+            0,                                                      # output this value if True
+            X[self.strColNameBalance] / X[self.strColNameSalary]    # output this value if False
         )
         if self.boolVerbose:
             print('finished step 7 Balance_Salary_Ratio()')
@@ -344,8 +340,7 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X:DataFrame):
-        tblInputData = objSpark.createDataFrame(X)
-        tblInputData = tblInputData.select(*self.lisstrColNames)
+        X = X.copy()[self.lisstrColNames]
         if self.boolVerbose:
             print('finished step 8 select_col()')
             print(X.head(100))
@@ -453,4 +448,98 @@ class SHAPExplanationTransformer(BaseEstimator, TransformerMixin):
             lisNewPredictionRow.append(dicNewPredictionRow)
             
         return pd.DataFrame(lisNewPredictionRow)
-    
+
+
+def main(
+        strPathTrainDataset = os.path.join('documents','train.csv'),
+    ):
+        start = time.time()
+        ########################################################
+        #######                                          #######
+        #######        Step 1: Load Data Training        #######
+        #######                                          #######
+        ########################################################
+        # Learnings:
+        # 1. Customer Id doesnt have duplicates
+        # 2. Surname, Geo, & Gender can have duplicates
+        # 3. Exited 0: 7960
+        # 4. Exited 1: 2034
+        tblRaw = pd.read_csv(
+            strPathTrainDataset
+        ).drop(
+            'CustomerId', 
+            axis='columns'
+        )
+        X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, 
+            y, 
+            test_size=0.2, 
+            random_state=42
+        )
+        for tblTbl in [X_train, X_test]:
+            tblTbl['Row_Number'] = np.arange(len(tblTbl))
+
+        ########################################################
+        #######                                          #######
+        #######      Step 2: Assemble Base Pipeline      #######
+        #######                                          #######
+        ########################################################
+        lisstrColNamesX = X_train.columns.tolist()
+        lisstrColNamesXFinal = lisstrColNamesX + ['Age_Tenure_Ratio','Balance_Salary_Ratio']
+        objPipeline = Pipeline([
+            ('Order', Order_Transformer()),
+            ('Diguised_Nulls', Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+            ('Coerce_Type', Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+            ('Imputer', Imputer_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+            ('Encoder', Encoder_Transformer(lisstrColNamesX, boolVerbose=True, lisstrColNamesExclude = ['Row_Number'])),
+            ('Age_Tenure_Ratio', Age_Tenure_Ratio('Age','Tenure','Age_Tenure_Ratio', boolVerbose=True)),
+            ('Balance_Salary_Ratio', Balance_Salary_Ratio('Balance','EstimatedSalary','Balance_Salary_Ratio', boolVerbose=True)),
+            ('Selecter', Select_Transformer(lisstrColNamesXFinal, boolVerbose=True)),
+            ('Random_Forest', RandomForestClassifier(n_estimators=100, random_state=42))
+        ])
+
+        ########################################################
+        #######                                          #######
+        #######         Step 3: Fit Base Pipeline        #######
+        #######                                          #######
+        ########################################################
+        objPipeline.fit(X_train, y_train)
+
+        ########################################################
+        #######                                          #######
+        #######                Step 4: Test              #######
+        #######                                          #######
+        ########################################################
+        y_pred = objPipeline.predict(X_test)
+
+        # Calculate metrics
+        acc = accuracy_score(y_test, y_pred)
+        y_test = y_test.astype(int)
+        y_pred = y_pred.astype(int)
+
+        prec = precision_score(y_test, y_pred, zero_division=0)
+        rec = recall_score(y_test, y_pred, zero_division=0)
+        f1 = f1_score(y_test, y_pred, zero_division=0)
+        cm = confusion_matrix(y_test, y_pred)
+
+        # Store metrics in object
+        print('AAAAA: Dependent Variables')
+        print(X_test[:10])
+        print('BBBBB: Dependent Variables')
+        print(y_pred[:10])
+        
+        print('CCCCC: Metrics')
+        print(f"Accuracy: {acc:.4f}")
+        print(f"Precision: {prec:.4f}")
+        print(f"Recall: {rec:.4f}")
+        print(f"F1 Score: {f1:.4f}")
+        print("Confusion Matrix:")
+        print(cm)
+
+        
+        end = time.time()
+        print(f"Time taken: {end - start:.2f} seconds")
+
+if __name__ == "__main__":
+    main()
