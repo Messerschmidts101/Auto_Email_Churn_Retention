@@ -86,6 +86,11 @@ function trainModel() {
             displayTable(data.samples, "training-details-preview");
             displayTable(data.metrics, 'metrics-details-preview');
             displayTable(data.confusion_matrix, 'confusion-metrix-details-preview');
+            if (data.feature_importance) {
+                displayTable(data.feature_importance, 'feature-importance-preview');
+            } else {
+                document.getElementById('feature-importance-preview').innerHTML = '<p class="subtext">No feature importance available.</p>';
+            }
             document.getElementById('time-details').textContent = `Time Taken: ${data.time} seconds`;
 
             // Enable the Step 3 button after training finishes

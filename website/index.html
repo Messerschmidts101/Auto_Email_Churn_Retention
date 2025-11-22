@@ -177,6 +177,11 @@
                 gap: 14px;
             }
 
+            .grid.training-grid {
+                grid-template-columns: minmax(260px, 1fr) minmax(520px, 2fr);
+                align-items: start;
+            }
+
             .card {
                 background: var(--card);
                 border: 1px solid rgba(255, 255, 255, 0.08);
@@ -350,6 +355,12 @@
                 height: 8px;
             }
 
+            @media (max-width: 900px) {
+                .grid.training-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
             @media (max-width: 768px) {
                 .topbar {
                     flex-direction: column;
@@ -404,7 +415,7 @@
                         </div>
                     </div>
 
-                    <div class="grid">
+                    <div class="grid training-grid">
                         <div class="card">
                             <h3>Step 1: Upload training data</h3>
                             <p class="subtext">Accepts CSV files. A preview is shown after upload.</p>
@@ -435,6 +446,9 @@
 
                             <h4>Confusion matrix</h4>
                             <div id="confusion-metrix-details-preview" class="data-container"></div>
+
+                            <h4>Feature importance</h4>
+                            <div id="feature-importance-preview" class="data-container"></div>
                         </div>
                     </div>
 
