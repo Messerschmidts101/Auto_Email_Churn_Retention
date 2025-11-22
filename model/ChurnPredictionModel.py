@@ -1,13 +1,5 @@
-'''import os
-os.environ['PYSPARK_DRIVER_PYTHON'] = os.path.join('venv','Scripts','python.exe')
-os.environ['PYSPARK_PYTHON'] = os.path.join('venv','Scripts','python.exe')
-# Your Java and Hadoop setup
-os.environ['JAVA_HOME'] = "C:/Program Files/Java/jdk-11"
-os.environ['HADOOP_HOME'] = "C:/Program Files/Hadoop"'''
+#  python -m model.ChurnPredictionModel
 
-
-from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
@@ -16,9 +8,10 @@ import os
 from model import utils_model
 import joblib
 import numpy as np
-objSpark = SparkSession.builder.getOrCreate()
+import pandas as pd
+import time
 
-class Modelling_Class():
+class ChurnPredictionModel():
     def __init__(self, strPathTrainDataset:str, strPathTrainedModel:str = None, strPathToSaveModels:str = ''):
         """
         # Inputs
@@ -42,7 +35,7 @@ class Modelling_Class():
 
         """
         self.strPathTrainDataset = strPathTrainDataset 
-        self.strPathModelSuper = strPathTrainedModel
+        self.strPathSHAPPipeline = strPathTrainedModel
         self.strPathToSaveModels = strPathToSaveModels
         self.intCountTrainPositiveClass = None
         self.intCountTrainNegativeClass = None
@@ -62,22 +55,24 @@ class Modelling_Class():
         #######        Step 1: Load Data Training        #######
         #######                                          #######
         ########################################################
-        tblRaw = objSpark.read.option(
-            "header", 
-            True
-        ).csv(
-            self.strPathTrainDataset
-        ).drop(
-            'CustomerId'
-        ).toPandas()
-
-        X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
         # Learnings:
         # 1. Customer Id doesnt have duplicates
         # 2. Surname, Geo, & Gender can have duplicates
         # 3. Exited 0: 7960
         # 4. Exited 1: 2034
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        tblRaw = pd.read_csv(
+            self.strPathTrainDataset
+        ).drop(
+            'CustomerId', 
+            axis='columns'
+        )
+        X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, 
+            y, 
+            test_size=0.2, 
+            random_state=42
+        )
         for tblTbl in [X_train, X_test]:
             tblTbl['Row_Number'] = np.arange(len(tblTbl))
 
@@ -88,7 +83,7 @@ class Modelling_Class():
         ########################################################
         lisstrColNamesX = X_train.columns.tolist()
         lisstrColNamesXFinal = lisstrColNamesX + ['Age_Tenure_Ratio','Balance_Salary_Ratio']
-        objPipeline = Pipeline([
+        objBasePipeline = Pipeline([
             ('Order', utils_model.Order_Transformer()),
             ('Diguised_Nulls', utils_model.Disguised_Nulls_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
             ('Coerce_Type', utils_model.Coerce_Type_Transformer(lisstrColNamesX, boolVerbose=boolVerbose, lisstrColNamesExclude = ['Row_Number'])),
@@ -105,19 +100,14 @@ class Modelling_Class():
         #######         Step 3: Fit Base Pipeline        #######
         #######                                          #######
         ########################################################
-        objPipeline.fit(X_train, y_train)
-        joblib.dump(
-            objPipeline,
-            os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_Basic.pkl')
-        )
-        self.strPathModelBasic = os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_Basic.pkl')
+        objBasePipeline.fit(X_train, y_train)
 
         ########################################################
         #######                                          #######
         #######                Step 4: Test              #######
         #######                                          #######
         ########################################################
-        y_pred = objPipeline.predict(X_test)
+        y_pred = objBasePipeline.predict(X_test)
 
         # Calculate metrics
         acc = accuracy_score(y_test, y_pred)
@@ -153,29 +143,37 @@ class Modelling_Class():
         #######       Step 5: Attach SHAP Explainer      #######
         #######                                          #######
         ########################################################
-        objPreprocessor = Pipeline(objPipeline.steps[:-1])  # everything except Random Forest
-        objModel = objPipeline.named_steps["Random_Forest"]
+        # Step 1: Save base model
+        joblib.dump(
+            objBasePipeline,
+            os.path.join(self.strPathToSaveModels, 'RandomForest_Base_Model.pkl')
+        )
+        self.strPathBasePipeline = os.path.join(self.strPathToSaveModels, 'RandomForest_Base_Model.pkl')
+
+        # Step 2: Save shap model
+        objPreprocessor = Pipeline(objBasePipeline.steps[:-1])
+        objModel = objBasePipeline.named_steps["Random_Forest"]
         objSuperPipeline = Pipeline([
             ('Preprocessor', objPreprocessor),
             ('Random_Forest_SHAP', utils_model.SHAPExplanationTransformer(objModel, intTopFeatCount=5))
         ])
         joblib.dump(
             objSuperPipeline,
-            os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_With_SHAP.pkl')
+            os.path.join(self.strPathToSaveModels, 'RandomForest_SHAP_Model.pkl')
         )
-        self.strPathModelSuper = os.path.join(self.strPathToSaveModels, 'New_Churn_Pred_Model_With_SHAP.pkl')
+        self.strPathSHAPPipeline = os.path.join(self.strPathToSaveModels, 'RandomForest_SHAP_Model.pkl')
 
-    def get_predictions(self,strPathScoring, strPathModelSuper:str = None, strPathSavePredictions:str=None, boolVerbose = False):
+    def get_predictions(self,strPathScoring, strPathSHAPPipeline:str = None, strPathSavePredictions:str=None, boolVerbose = False):
         """
         # Inputs
         1. strPathScoring: string. Path to csv file to predict.
-        2. strPathModelSuper: string. Path to trained super pipeline. Can be left empty and use the trained model of itself.
+        2. strPathSHAPPipeline: string. Path to trained super pipeline. Can be left empty and use the trained model of itself.
         3. strPathSavePredictions: string. Path to save predictions as csv. Can be left empty and no save will be done. 
         4. boolVerbose: boolean. If true, display results of data transformation at each stage of the pipeline.
 
         # Process
         1. Loads csv file of scoring defined in `strPathScoring`.
-        2. Loads super pipeline defined in either `strPathModelSuper` or `self.strPathModelSuper`. Prioritizes `strPathModelSuper`.
+        2. Loads super pipeline defined in either `strPathSHAPPipeline` or `self.strPathSHAPPipeline`. Prioritizes `strPathSHAPPipeline`.
         3. Runs the super pipeline to predict if churn or not, with result of SHAP explainer.
 
         # Output
@@ -183,9 +181,9 @@ class Modelling_Class():
         2. If there is value in `strPathSavePredictions`, stores the prediction to csv.
         """
 
-        if not strPathModelSuper:
-            if self.strPathModelSuper:
-                strPathModelSuper = self.strPathModelSuper
+        if not strPathSHAPPipeline:
+            if self.strPathSHAPPipeline:
+                strPathSHAPPipeline = self.strPathSHAPPipeline
             else:
                 raise Exception('Attempting to get predictions without trained model. Stopping process immediately.')
         
@@ -194,20 +192,13 @@ class Modelling_Class():
         #######         Step 1: Load Data Scoring        #######
         #######                                          #######
         ########################################################
-        tblScoring = objSpark.read.option(
-            "header", 
-            True
-        ).csv(
-            strPathScoring
-        ).drop(
-            'CustomerId'
-        ).toPandas()
+        tblScoring = pd.read_csv(strPathScoring)
         ########################################################
         #######                                          #######
         #######            Step 2: Load Model            #######
         #######                                          #######
         ########################################################
-        objPipeline = joblib.load(self.strPathModelSuper)
+        objPipeline = joblib.load(self.strPathSHAPPipeline)
         for strStepName,objTransformer in objPipeline.named_steps['Preprocessor'].named_steps.items():
             if hasattr(objTransformer,'boolVerbose'):
                 objTransformer.boolVerbose = boolVerbose
@@ -224,3 +215,38 @@ class Modelling_Class():
             tblPredictions.to_csv(strPathSavePredictions, index=False)
         return tblPredictions
         
+def main(
+        strPathTrainDataset = os.path.join('documents','train.csv'),
+        strPathStorageML = os.path.join('model'),
+        strPathScoreDataset = os.path.join('documents','scoring.csv')
+    ):
+    ########################################################
+    #######                                          #######
+    #######           Step 1: Train and Dump         #######
+    #######                                          #######
+    ########################################################
+    objModellingClass = ChurnPredictionModel(
+        strPathTrainDataset = strPathTrainDataset,
+        strPathToSaveModels = strPathStorageML
+    )
+    timeStart = time.time()
+    objModellingClass.run_training(boolVerbose = False)
+    joblib.dump(objModellingClass, os.path.join(strPathStorageML, 'New_Churn_Pred_Model_With_SHAP.pkl')) 
+    
+    ########################################################
+    #######                                          #######
+    #######               Step 2: Predict            #######
+    #######                                          #######
+    ########################################################
+    
+    objPipeline = joblib.load(os.path.join(strPathStorageML, 'New_Churn_Pred_Model_With_SHAP.pkl')) 
+    tblLatestScored = objPipeline.get_predictions(strPathScoring = strPathScoreDataset)
+    print('AAA: Check Predictions here')
+    print(tblLatestScored.head())
+    
+    timeEnd = time.time()
+    print(f"Time taken: {timeEnd - timeStart:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()
