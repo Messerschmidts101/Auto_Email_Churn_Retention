@@ -1,12 +1,12 @@
 
 import string
 import random
-import llm.llm_class as llm
+import llm.GenAIModel as GenAIModel
 import server_web_config
 
 
 # complete
-def create_llm() -> llm:
+def create_llm() -> GenAIModel:
     """
     # Input
     1. None

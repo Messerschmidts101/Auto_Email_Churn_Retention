@@ -18,7 +18,7 @@ from operator import itemgetter
 from datetime import datetime
 import time
 
-class LLM:
+class GenAIModel:
     def __init__(self, intLLMProvider:int, 
                  strIngestPath:str, 
                  strPromptTemplate:str, 

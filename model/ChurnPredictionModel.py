@@ -1,4 +1,4 @@
-#  python -m model.SupervisorModel
+#  python -m model.ChurnPredictionModel
 
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import time
 
-class SupervisorModel():
+class ChurnPredictionModel():
     def __init__(self, strPathTrainDataset:str, strPathTrainedModel:str = None, strPathToSaveModels:str = ''):
         """
         # Inputs
@@ -225,7 +225,7 @@ def main(
     #######           Step 1: Train and Dump         #######
     #######                                          #######
     ########################################################
-    objModellingClass = SupervisorModel(
+    objModellingClass = ChurnPredictionModel(
         strPathTrainDataset = strPathTrainDataset,
         strPathToSaveModels = strPathStorageML
     )
