@@ -182,6 +182,12 @@
                 align-items: start;
             }
 
+            .vertical-flow {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+            }
+
             .card {
                 background: var(--card);
                 border: 1px solid rgba(255, 255, 255, 0.08);
@@ -415,7 +421,7 @@
                         </div>
                     </div>
 
-                    <div class="grid training-grid">
+                    <div class="grid training-grid vertical-flow">
                         <div class="card">
                             <h3>Step 1: Upload training data</h3>
                             <p class="subtext">Accepts CSV files. A preview is shown after upload.</p>
@@ -470,7 +476,7 @@
 
                 <!-- Inference Section -->
                 <div id="inference-section" class="section hidden">
-                    <div class="grid">
+                    <div class="grid vertical-flow">
                         <div class="card highlight">
                             <h2>Inference & actions</h2>
                             <p class="subtext">Score new customer data, generate tailored messaging, and send outreach.</p>
@@ -491,7 +497,7 @@
                         </div>
                     </div>
 
-                    <div class="grid">
+                    <div class="grid vertical-flow">
                         <div class="card">
                             <h3>Step 1: Upload scoring data</h3>
                             <div class="upload-box">
@@ -515,7 +521,7 @@
                         </div>
                     </div>
 
-                    <div class="grid">
+                    <div class="grid vertical-flow">
                         <div class="card">
                             <h3>Step 3: Create emails</h3>
                             <p class="subtext">Generate tailored customer messages from the scored dataset.</p>
