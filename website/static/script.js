@@ -1,17 +1,31 @@
+function setActiveNav(sectionId) {
+    document.querySelectorAll('.nav-button').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-section') === sectionId);
+    });
+}
+
 function showSection(sectionId) {
     document.querySelectorAll('.section').forEach(section => {
         section.classList.add('hidden');
     });
-    document.getElementById(sectionId).classList.remove('hidden');
+    const target = document.getElementById(sectionId);
+    target.classList.remove('hidden');
+    setActiveNav(sectionId);
 }
 
 // Upload CSV handler with dynamic preview
 function uploadCSV(type) {
     const fileInput = document.getElementById(`${type}-file`);
     const file = fileInput?.files?.[0];
+    const fileLabel = document.querySelector(`[data-file-label="${type}"]`);
+
     if (!file) {
         alert("Please select a CSV file.");
         return;
+    }
+
+    if (fileLabel) {
+        fileLabel.textContent = file.name;
     }
 
     const formData = new FormData();
@@ -43,12 +57,12 @@ function trainModel() {
 
     // Show loading UI
     spinner.style.display = 'block';
-    progressBarContainer.style.display = 'block';
+    progressBarContainer.style.display = 'flex';
 
     // Start fake progress
     let percent = 0;
     const totalDuration = 900000; // 10 minutes in milliseconds
-    const interval = 1000;         // update every 1 second
+    const interval = 1000; // update every 1 second
     const increment = 100 / (totalDuration / interval);
 
     const timer = setInterval(() => {
@@ -59,7 +73,6 @@ function trainModel() {
     fetch('/train_model')
         .then(res => res.json())
         .then(data => {
-            
             // Conclude timer
             clearInterval(timer);
             percent = 100;
@@ -78,7 +91,7 @@ function trainModel() {
             // Enable the Step 3 button after training finishes
             const proceedButton = document.getElementById('btn-proceed-inference');
             proceedButton.disabled = false;
-            proceedButton.style.backgroundColor = '#4caf50';
+            proceedButton.style.backgroundColor = '';
             proceedButton.style.cursor = 'pointer';
             proceedButton.removeAttribute('title');
 
@@ -100,12 +113,12 @@ function inferenceModel() {
 
     // Show loading UI
     spinner.style.display = 'block';
-    progressBarContainer.style.display = 'block';
+    progressBarContainer.style.display = 'flex';
 
     // Start fake progress
     let percent = 0;
     const totalDuration = 900000; // 10 minutes in milliseconds
-    const interval = 1000;         // update every 1 second
+    const interval = 1000; // update every 1 second
     const increment = 100 / (totalDuration / interval);
 
     const timer = setInterval(() => {
@@ -116,7 +129,7 @@ function inferenceModel() {
     fetch('/run_inference')
         .then(res => res.json())
         .then(data => {
-            
+
             // Conclude timer
             clearInterval(timer);
             percent = 100;
@@ -141,18 +154,18 @@ function inferenceModel() {
 
 // Create Emails
 function createEmail() {
-    const spinner = document.getElementById('loading-spinner-email-generation-result'); 
+    const spinner = document.getElementById('loading-spinner-email-generation-result');
     spinner.style.display = 'block'; // Show spinner
-    fetch('/create_emails') 
+    fetch('/create_emails')
         .then(res => res.json())
         .then(data => {
             alert('email generation complete.');
-            displayTable(data, 'email-generation-result'); 
+            displayTable(data, 'email-generation-result');
 
             // Enable the Step 4 button after training finishes
             const sendEmailButton = document.getElementById('btn-send-email');
             sendEmailButton.disabled = false;
-            sendEmailButton.style.backgroundColor = '#4caf50';
+            sendEmailButton.style.backgroundColor = '';
             sendEmailButton.style.cursor = 'pointer';
             sendEmailButton.removeAttribute('title');
         })
@@ -167,9 +180,9 @@ function createEmail() {
 
 // View Results
 function viewResults(){
-    const spinner = document.getElementById('loading-spinner-view-results'); 
+    const spinner = document.getElementById('loading-spinner-view-results');
     const rowCountDiv = document.getElementById('view-result-result-row-count');
-    
+
     const strTableName = document.getElementById('table-type').value;
     const strTableVersion = document.getElementById('version-type').value;
     spinner.style.display = 'block'; // Show spinner
@@ -197,15 +210,15 @@ function viewResults(){
 
 // Send Emails
 function sendEmail() {
-    const spinner = document.getElementById('loading-spinner-send-email-result'); 
+    const spinner = document.getElementById('loading-spinner-send-email-result');
     const btn = document.getElementById('btn-send-email');
     const status = document.getElementById('send-email-status');
 
-    spinner.style.display = 'block'; 
+    spinner.style.display = 'block';
     btn.textContent = 'Sending...';
     btn.disabled = true;
 
-    fetch('/send_emails') 
+    fetch('/send_emails')
         .then(res => res.json())
         .then(data => {
             status.textContent = '✅ Emails sent successfully!';
@@ -217,15 +230,15 @@ function sendEmail() {
             status.style.color = 'red';
         })
         .finally(() => {
-            spinner.style.display = 'none'; 
-            btn.textContent = 'Send Emails To All Customers';
+            spinner.style.display = 'none';
+            btn.textContent = 'Send emails to all customers';
             btn.disabled = false;
         });
 }
 
 // Display data table
 function displayTable(data, targetId) {
-    const container = document.getElementById(targetId);    
+    const container = document.getElementById(targetId);
     /*
     ########################################################
     #######                                          #######
@@ -236,7 +249,7 @@ function displayTable(data, targetId) {
     container.innerHTML = '';
 
     if (!Array.isArray(data) || data.length === 0) {
-        container.innerHTML = '<p>No data to display.</p>';
+        container.innerHTML = '<p class="subtext">No data to display.</p>';
         return;
     }
 
@@ -250,7 +263,7 @@ function displayTable(data, targetId) {
     Object.keys(data[0]).forEach(key => {
         const th = document.createElement('th');
         th.textContent = key;
-        th.style.cssText = 'border:1px solid #ccc;padding:6px;background:#f2f2f2;position:sticky;top:0';
+        th.style.cssText = 'border:1px solid rgba(255,255,255,0.08);padding:8px;background:rgba(255,255,255,0.05);position:sticky;top:0';
         headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
@@ -263,7 +276,7 @@ function displayTable(data, targetId) {
         Object.values(row).forEach(cell => {
         const td = document.createElement('td');
         td.textContent = cell;
-        td.style.cssText = 'border:1px solid #ccc;padding:6px;';
+        td.style.cssText = 'border:1px solid rgba(255,255,255,0.08);padding:8px;';
         tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -284,14 +297,15 @@ function displayTable(data, targetId) {
     // 1. Create the button
     let filename = `${targetId}.csv`;
     const button = document.createElement('button');
-    button.style.cssText = 'float: right; margin: 10px 0;'; // Button will be placed at right
-    button.textContent = 'Download Table';  // Button label
+    button.className = 'secondary';
+    button.style.cssText += 'float: right; margin: 10px 0;'; // Button will be placed at right
+    button.textContent = 'Download Table'; // Button label
     button.onclick = function () {
         const header = Object.keys(data[0]);
         const csvRows = [header.join(',')];
 
         data.forEach(row => {
-            const values = header.map(key => 
+            const values = header.map(key =>
                 `"${String(row[key]).replace(/"/g, '""')}"` // escape quotes
             );
             csvRows.push(values.join(','));
@@ -315,3 +329,14 @@ function displayTable(data, targetId) {
 
 }
 
+// Update file chips when a user selects a file (pre-upload)
+document.querySelectorAll('input[type="file"]').forEach(input => {
+    input.addEventListener('change', (event) => {
+        const file = event.target.files?.[0];
+        const type = event.target.id.replace('-file', '');
+        const fileLabel = document.querySelector(`[data-file-label="${type}"]`);
+        if (file && fileLabel) {
+            fileLabel.textContent = file.name;
+        }
+    });
+});

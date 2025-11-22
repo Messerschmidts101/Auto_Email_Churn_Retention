@@ -5,195 +5,570 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>AI Model Trainer & Scorer</title>
         <style>
+            :root {
+                --bg: #0f172a;
+                --surface: #111827;
+                --panel: #0b1223;
+                --card: #1f2937;
+                --border: #1f2937;
+                --primary: #22d3ee;
+                --secondary: #a855f7;
+                --text: #e5e7eb;
+                --muted: #9ca3af;
+                --success: #10b981;
+                --danger: #ef4444;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
             body {
-                font-family: Arial, sans-serif;
                 margin: 0;
+                font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+                background: radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.06), transparent 25%),
+                    radial-gradient(circle at 80% 0%, rgba(168, 85, 247, 0.06), transparent 35%),
+                    var(--bg);
+                color: var(--text);
+                min-height: 100vh;
                 display: flex;
-                height: 100vh;
+                flex-direction: column;
             }
-            .sidebar {
-                width: 200px;
-                background-color: #2c3e50;
-                color: white;
-                padding: 1rem;
+
+            header {
+                backdrop-filter: blur(10px);
+                background: rgba(15, 23, 42, 0.6);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                position: sticky;
+                top: 0;
+                z-index: 10;
             }
-            .sidebar button {
-                display: block;
-                width: 100%;
-                margin: 1rem 0;
-                padding: 0.5rem;
-                background-color: #34495e;
-                border: none;
-                color: white;
+
+            .topbar {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 16px 20px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+            }
+
+            .brand .mark {
+                width: 36px;
+                height: 36px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, var(--primary), var(--secondary));
+                display: grid;
+                place-items: center;
+                font-size: 18px;
+                color: #0b1223;
+                font-weight: 800;
+            }
+
+            .nav-buttons {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .nav-button {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                color: var(--text);
+                padding: 10px 14px;
+                border-radius: 10px;
                 cursor: pointer;
+                transition: 0.2s ease;
+                font-weight: 600;
             }
-            .main {
-                flex-grow: 1;
-                padding: 2rem;
-                overflow-y: auto;
+
+            .nav-button:hover {
+                border-color: rgba(34, 211, 238, 0.5);
+                color: #fff;
+                transform: translateY(-1px);
             }
-            .hidden {
+
+            .nav-button.active {
+                background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(168, 85, 247, 0.12));
+                border-color: rgba(34, 211, 238, 0.6);
+                box-shadow: 0 5px 30px rgba(34, 211, 238, 0.15);
+            }
+
+            main {
+                max-width: 1200px;
+                margin: 24px auto;
+                padding: 0 20px 40px;
+                width: 100%;
+            }
+
+            .summary-banner {
+                background: linear-gradient(120deg, rgba(34, 211, 238, 0.15), rgba(168, 85, 247, 0.15));
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                padding: 18px 20px;
+                border-radius: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                color: #e0f2fe;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+            }
+
+            .summary-banner p {
+                margin: 0;
+                color: rgba(255, 255, 255, 0.85);
+            }
+
+            .pill {
+                background: rgba(255, 255, 255, 0.12);
+                padding: 6px 12px;
+                border-radius: 999px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                font-weight: 600;
+                color: #fff;
+                font-size: 14px;
+            }
+
+            .sections {
+                margin-top: 22px;
+                display: grid;
+                gap: 18px;
+            }
+
+            .section {
+                background: rgba(15, 23, 42, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 18px;
+                padding: 20px;
+                box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+            }
+
+            .section.hidden {
                 display: none;
             }
+
+            h2 {
+                margin: 0 0 10px;
+                letter-spacing: -0.01em;
+            }
+
+            h3 {
+                margin-top: 24px;
+                margin-bottom: 8px;
+            }
+
+            h4 {
+                margin-bottom: 8px;
+                color: var(--muted);
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 14px;
+            }
+
+            .card {
+                background: var(--card);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                padding: 16px;
+                border-radius: 14px;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            }
+
+            .card.highlight {
+                border-color: rgba(34, 211, 238, 0.3);
+                background: linear-gradient(145deg, rgba(34, 211, 238, 0.08), rgba(168, 85, 247, 0.05));
+            }
+
+            label {
+                display: block;
+                margin-bottom: 8px;
+                color: var(--muted);
+            }
+
+            input[type="file"],
+            select,
+            button {
+                font: inherit;
+            }
+
+            .upload-box {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px dashed rgba(255, 255, 255, 0.1);
+                padding: 12px;
+                border-radius: 12px;
+            }
+
+            .upload-box input[type="file"] {
+                flex: 1;
+                color: var(--muted);
+            }
+
+            .file-chip {
+                background: rgba(34, 211, 238, 0.12);
+                border: 1px solid rgba(34, 211, 238, 0.3);
+                padding: 6px 10px;
+                border-radius: 10px;
+                color: #e0f2fe;
+                font-weight: 600;
+            }
+
+            .action-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                align-items: center;
+                margin-top: 12px;
+            }
+
+            button.primary {
+                background: linear-gradient(135deg, #22d3ee, #a855f7);
+                color: #0b1223;
+                border: none;
+                padding: 12px 16px;
+                border-radius: 12px;
+                cursor: pointer;
+                font-weight: 700;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+
+            button.primary:disabled {
+                background: rgba(255, 255, 255, 0.08);
+                color: rgba(255, 255, 255, 0.5);
+                cursor: not-allowed;
+                box-shadow: none;
+            }
+
+            button.secondary {
+                background: rgba(255, 255, 255, 0.06);
+                color: var(--text);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 10px 14px;
+                border-radius: 10px;
+                cursor: pointer;
+            }
+
+            button.primary:not(:disabled):hover,
+            button.secondary:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 10px 30px rgba(34, 211, 238, 0.2);
+            }
+
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 1rem;
+                margin-top: 10px;
+                color: var(--text);
             }
-            th, td {
-                border: 1px solid #ccc;
-                padding: 0.5rem;
+
+            th,
+            td {
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                padding: 10px;
+                font-size: 14px;
             }
-            input[type="file"] {
-                margin-top: 1rem;
+
+            th {
+                background: rgba(255, 255, 255, 0.04);
+                position: sticky;
+                top: 0;
             }
-            #result-table {
-                max-height: 400px;
-                overflow-y: auto;
+
+            .data-container {
+                max-height: 340px;
+                overflow: auto;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                padding: 8px;
+                background: rgba(255, 255, 255, 0.02);
+            }
+
+            .progress-track {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .progress-track .bar {
+                flex: 1;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 999px;
+                overflow: hidden;
+                height: 12px;
+            }
+
+            .progress-track .fill {
+                height: 100%;
+                width: 0;
+                background: linear-gradient(90deg, #22d3ee, #a855f7);
+                transition: width 0.3s ease;
+            }
+
+            .status-badge {
+                padding: 6px 10px;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                background: rgba(34, 211, 238, 0.12);
+                color: #99f6e4;
+                border: 1px solid rgba(34, 211, 238, 0.2);
+            }
+
+            .status-badge.error {
+                background: rgba(239, 68, 68, 0.1);
+                border-color: rgba(239, 68, 68, 0.3);
+                color: #fecdd3;
+            }
+
+            .btn-row {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+            .subtext {
+                color: var(--muted);
+                margin: 0;
+                font-size: 14px;
+            }
+
+            .spacer {
+                height: 8px;
+            }
+
+            @media (max-width: 768px) {
+                .topbar {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
             }
         </style>
     </head>
     <body>
-        <div class="sidebar">
-            <button onclick="showSection('train-section')">Train Model</button>
-            <button onclick="showSection('inference-section')">Run Inference</button>
-            <button onclick="showSection('results')">View Results</button>
-        </div>
-
-        <div class="main">
-            <!-- Train Section -->
-            <div id="train-section" class="section">
-                <h2>Train Your Model</h2>
-
-                <h3>Step 1: Upload Training Data</h3>
-                <input type="file" id="train-file" accept=".csv" />
-                <button onclick="uploadCSV('train')">Upload</button>
-
-                <div style="margin-top: 1rem;">
-                    <h4>Training Data Preview:</h4>
-                    <div id="uploaded-train-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+        <header>
+            <div class="topbar">
+                <div class="brand">
+                    <div class="mark">AI</div>
+                    <div>
+                        <div style="font-size: 14px; color: var(--muted);">Churn & Retention Studio</div>
+                        <div style="font-size: 18px; font-weight: 800;">AI Model Trainer & Scorer</div>
+                    </div>
                 </div>
+                <div class="nav-buttons">
+                    <button class="nav-button active" data-section="train-section" onclick="showSection('train-section')">Train</button>
+                    <button class="nav-button" data-section="inference-section" onclick="showSection('inference-section')">Inference</button>
+                    <button class="nav-button" data-section="results" onclick="showSection('results')">Results</button>
+                </div>
+            </div>
+        </header>
 
-                <h3>Step 2: Run Training</h3>
-                <button onclick="trainModel()">Train Model</button>
-                <div id="time-details"></div>
+        <main>
+            <div class="summary-banner">
+                <div>
+                    <p style="font-weight: 700;">Multi-step pipeline</p>
+                    <p class="subtext">Upload your data, train the churn model, run inference, and deliver personalized emails in a guided flow.</p>
+                </div>
+                <div class="pill">Realtime progress & downloads</div>
+            </div>
 
-                <div style="margin-top: 1rem;">
-                    <h4>Training Details:</h4>
-                    <div id="progress-bar-container-train" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
-                        <img id="loading-spinner-training-details-preview" 
-                             src="{{ url_for('static', filename='loading-spin.gif') }}" 
-                             alt="Loading..." 
-                             style="display: none; width: 40px;" />
-                        <div style="width: 100%; background-color: #e0e0e0;">
-                            <div id="progress-bar-train" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+            <div class="sections">
+                <!-- Train Section -->
+                <div id="train-section" class="section">
+                    <div class="grid">
+                        <div class="card highlight">
+                            <h2>Train your model</h2>
+                            <p class="subtext">Follow the guided steps to ingest data, train, and review performance metrics.</p>
                         </div>
-                        <p id="progress-label-train" style="margin: 5px 0 0 0;">0%</p>
+                        <div class="card">
+                            <h4>Training status</h4>
+                            <div class="progress-track" id="progress-bar-container-train" style="display: none;">
+                                <div class="bar"><div id="progress-bar-train" class="fill"></div></div>
+                                <div id="progress-label-train" class="status-badge">0%</div>
+                            </div>
+                            <div class="spacer"></div>
+                            <div id="time-details" class="subtext">Waiting to start…</div>
+                        </div>
                     </div>
 
-                    <h5>Dataset Details:</h5>
-                    <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Step 1: Upload training data</h3>
+                            <p class="subtext">Accepts CSV files. A preview is shown after upload.</p>
+                            <div class="upload-box">
+                                <input type="file" id="train-file" accept=".csv" />
+                                <span class="file-chip" data-file-label="train">No file chosen</span>
+                            </div>
+                            <div class="action-row">
+                                <button class="primary" onclick="uploadCSV('train')">Upload</button>
+                            </div>
+                            <h4>Training data preview</h4>
+                            <div id="uploaded-train-preview" class="data-container"></div>
+                        </div>
 
-                    <h5>Metrics Details:</h5>
-                    <div id="metrics-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+                        <div class="card">
+                            <h3>Step 2: Run training</h3>
+                            <p class="subtext">Kick off model training and watch progress in real time.</p>
+                            <div class="action-row">
+                                <img id="loading-spinner-training-details-preview" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 30px;" />
+                                <button class="primary" onclick="trainModel()">Train model</button>
+                            </div>
 
-                    <h5>Confusion Matrix:</h5>
-                    <div id="confusion-metrix-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
+                            <h4>Dataset details</h4>
+                            <div id="training-details-preview" class="data-container"></div>
 
-                <h3>Step 3: Proceed To Inferencing</h3>
-                <button 
-                    id="btn-proceed-inference" 
-                    onclick="showSection('inference-section')" 
-                    disabled 
-                    style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20vh"
-                    title="Please complete training first"
-                >
-                    Proceed To Inferencing
-                </button>
-            </div>
+                            <h4>Metrics</h4>
+                            <div id="metrics-details-preview" class="data-container"></div>
 
-            <!-- Inference Section -->
-            <div id="inference-section" class="section hidden">
-                <h2>Inference Model</h2>
-
-                <h3>Step 1: Upload Scoring Data</h3>
-                <input type="file" id="scoring-file" accept=".csv" />
-                <button onclick="uploadCSV('scoring')">Upload</button>
-
-                <div style="margin-top: 1rem;">
-                    <h4>Scoring Data Preview:</h4>
-                    <div id="uploaded-scoring-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
-
-                <h3>Step 2: Run Inference</h3>
-                <button onclick="inferenceModel('scoring')">Predict</button>
-                <div id="progress-bar-container-infer" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
-                    <img id="loading-spinner-training-details-preview" 
-                         src="{{ url_for('static', filename='loading-spin.gif') }}" 
-                         alt="Loading..." 
-                         style="display: none; width: 40px;" />
-                    <div style="width: 100%; background-color: #e0e0e0;">
-                        <div id="progress-bar-infer" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+                            <h4>Confusion matrix</h4>
+                            <div id="confusion-metrix-details-preview" class="data-container"></div>
+                        </div>
                     </div>
-                    <p id="progress-label-infer" style="margin: 5px 0 0 0;">0%</p>
+
+                    <div class="card">
+                        <h3>Step 3: Proceed to inference</h3>
+                        <p class="subtext">Unlock the inference tab after a successful training run.</p>
+                        <button
+                            class="primary"
+                            id="btn-proceed-inference"
+                            onclick="showSection('inference-section')"
+                            disabled
+                            style="width: 100%; min-height: 72px;"
+                            title="Please complete training first"
+                        >
+                            Proceed to inferencing
+                        </button>
+                    </div>
                 </div>
 
-                <div style="margin-top: 1rem;">
-                    <h4>Churn Report Result:</h4>
-                    <div id="churn-report-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
-                <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+                <!-- Inference Section -->
+                <div id="inference-section" class="section hidden">
+                    <div class="grid">
+                        <div class="card highlight">
+                            <h2>Inference & actions</h2>
+                            <p class="subtext">Score new customer data, generate tailored messaging, and send outreach.</p>
+                        </div>
+                        <div class="card">
+                            <h4>Inference progress</h4>
+                            <div class="progress-track" id="progress-bar-container-infer" style="display: none;">
+                                <div class="bar"><div id="progress-bar-infer" class="fill"></div></div>
+                                <div id="progress-label-infer" class="status-badge">0%</div>
+                            </div>
+                            <div class="spacer"></div>
+                            <div class="action-row">
+                                <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 30px;" />
+                                <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 30px;" />
+                                <img id="loading-spinner-send-email-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 30px;" />
+                            </div>
+                            <p class="subtext">Track scoring, email creation, and bulk send in one place.</p>
+                        </div>
+                    </div>
 
-                <h3>Step 3: Create Emails</h3>
-                <button onclick="createEmail('scoring')">Generate</button>
-                <div style="margin-top: 1rem;">
-                    <h4>Email Generation Result:</h4>
-                    <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
-                <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Step 1: Upload scoring data</h3>
+                            <div class="upload-box">
+                                <input type="file" id="scoring-file" accept=".csv" />
+                                <span class="file-chip" data-file-label="scoring">No file chosen</span>
+                            </div>
+                            <div class="action-row">
+                                <button class="primary" onclick="uploadCSV('scoring')">Upload</button>
+                            </div>
+                            <h4>Scoring data preview</h4>
+                            <div id="uploaded-scoring-preview" class="data-container"></div>
+                        </div>
 
-                <h3>Step 4: Send Emails</h3>
-                <img id="loading-spinner-send-email-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
-                <button 
-                    id="btn-send-email" 
-                    onclick="sendEmail()" 
-                    disabled 
-                    style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20vh"
-                    title="Please generate emails first"
-                >
-                    Send Emails To All Customers
-                </button>
-                <p id="send-email-status" style="margin-top: 10px; font-weight: bold;"></p>
+                        <div class="card">
+                            <h3>Step 2: Run inference</h3>
+                            <div class="btn-row">
+                                <button class="primary" onclick="inferenceModel('scoring')">Predict</button>
+                            </div>
+                            <h4>Churn report result</h4>
+                            <div id="churn-report-result" class="data-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Step 3: Create emails</h3>
+                            <p class="subtext">Generate tailored customer messages from the scored dataset.</p>
+                            <div class="btn-row">
+                                <button class="primary" onclick="createEmail('scoring')">Generate</button>
+                            </div>
+                            <h4>Email generation result</h4>
+                            <div id="email-generation-result" class="data-container"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Step 4: Send emails</h3>
+                            <p class="subtext">Send to every customer after reviewing generated content.</p>
+                            <button
+                                class="primary"
+                                id="btn-send-email"
+                                onclick="sendEmail()"
+                                disabled
+                                style="width: 100%; min-height: 72px;"
+                                title="Please generate emails first"
+                            >
+                                Send emails to all customers
+                            </button>
+                            <p id="send-email-status" style="margin-top: 12px; font-weight: bold;"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="section hidden">
+                    <div class="grid">
+                        <div class="card highlight">
+                            <h2>View results</h2>
+                            <p class="subtext">Browse historical snapshots or the latest outputs for every stage.</p>
+                        </div>
+                        <div class="card">
+                            <h4>Filters</h4>
+                            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                                <div>
+                                    <label for="table-type">Table</label>
+                                    <select id="table-type" onchange="viewResults()">
+                                        <option value="training">Training</option>
+                                        <option value="scoring">Scoring</option>
+                                        <option value="scored">Scored</option>
+                                        <option value="emails">Emails</option>
+                                        <option value="models">Models</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="version-type">Version</label>
+                                    <select id="version-type" onchange="viewResults()">
+                                        <option value="latest">Latest</option>
+                                        <option value="historical">Historical</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div id="view-result-result-row-count" class="status-badge" style="display: inline-block;">Ready to fetch</div>
+                        <div id="view-result-result" class="data-container" style="margin-top: 12px;"></div>
+                        <img id="loading-spinner-view-results" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 30px; margin-top: 10px;" />
+                    </div>
+                </div>
             </div>
-
-            <!-- Results Section -->
-            <div id="results" class="section hidden">
-                <h2>View Results</h2>
-
-                <div style="margin-bottom: 1rem;">
-                    <label for="table-type">Select Table Type:</label>
-                    <select id="table-type" onchange="viewResults()">
-                        <option value="training">Training</option>
-                        <option value="scoring">Scoring</option>
-                        <option value="scored">Scored</option>
-                        <option value="emails">Emails</option>
-                        <option value="models">Models</option>
-                    </select>
-
-                    <label for="version-type" style="margin-left: 1rem;">Select Version:</label>
-                    <select id="version-type" onchange="viewResults()">
-                        <option value="latest">Latest</option>
-                        <option value="historical">Historical</option>
-                    </select>
-                </div>
-                <div id="view-result-result-row-count"></div>
-                <div id="view-result-result" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc;">
-                    <!-- TODO: Result table will be populated here -->
-                </div>
-                <img id="loading-spinner-view-results" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px; margin-top: 10px;" />
-            </div>
-        </div>
+        </main>
 
         <script src="{{ url_for('static', filename='script.js') }}"></script>
     </body>
