@@ -21,7 +21,7 @@ def create_llm() -> GenAIModel:
     with open(server_web_config.strPathPersonaLLM, "r", encoding="utf-8") as file:
         strTemplateContextResponse = file.read()
     # Step 2: Create LLM
-    objLLM = llm.LLM_Email(intLLMProvider = 1, 
+    objLLM = GenAIModel.LLM_Email(intLLMProvider = 1, 
         strIngestPath = server_web_config.strPathStorageLLM,
         strPromptTemplate = strTemplateContextResponse, 
         strAPIKey = server_web_config.strAPILLM, 

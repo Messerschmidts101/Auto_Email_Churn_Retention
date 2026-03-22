@@ -368,7 +368,7 @@ class GenAIModel:
             'Time To Respond': timeEnd - timeStart
         }
 
-class LLM_Email(LLM): # inherit llm class
+class LLM_Email(GenAIModel): # inherit llm class
     def __init__(self, intLLMProvider:int, 
                  strIngestPath:str, 
                  strPromptTemplate:str, 
