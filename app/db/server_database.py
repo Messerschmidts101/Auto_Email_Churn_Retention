@@ -92,7 +92,6 @@ class Table_Functions:
 
         return True
 
-    
 ########################################################
 #######                                          #######
 #######           Step 1: Latest Tables          #######
