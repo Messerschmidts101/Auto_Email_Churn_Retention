@@ -26,7 +26,6 @@ distro==1.9.0
 durationpy==0.10
 executing==2.2.0
 fastapi==0.135.1
-python-multipart==0.0.20
 filelock==3.18.0
 Flask-SQLAlchemy==3.1.1
 flatbuffers==25.2.10
@@ -101,6 +100,7 @@ prompt_toolkit==3.0.51
 propcache==0.3.2
 protobuf==6.31.1
 psutil==7.0.0
+psycopg2==2.9.11
 pure_eval==0.2.3
 py4j==0.10.9.7
 pyasn1==0.6.1
@@ -116,6 +116,7 @@ pyreadline3==3.5.4
 pyspark==3.4.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+python-multipart==0.0.22
 pytz==2025.2
 pywin32==310
 PyYAML==6.0.2

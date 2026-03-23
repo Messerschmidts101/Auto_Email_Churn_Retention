@@ -32,8 +32,8 @@ class DTO_DatasetSplit(BaseModel):
 class DTO_ConfusionMatrix(BaseModel):
     intFalseNegative: int
     intFalsePositive: int
-    intTrueNegative:int
-    intTruePositive:int
+    intTrueNegative: int
+    intTruePositive: int
 
 class DTO_Metrics(BaseModel):
     fltAccuracy: float
