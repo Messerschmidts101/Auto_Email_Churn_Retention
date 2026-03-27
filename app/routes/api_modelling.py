@@ -1,5 +1,5 @@
 
-from app.schema.schema import DTO_Request_UploadTrainingData, DTO_Respond_UploadTrainingData, DTO_Request_RunTraining, DTO_Respond_RunTraining, DTO_DatasetSplit, DTO_ConfusionMatrix, DTO_Metrics, DTO_FeatureImportanceRow
+from app.schema.schema import DTO_Request_UploadTrainingData, DTO_Respond_UploadDataFrame, DTO_Request_RunTraining, DTO_Respond_RunTraining, DTO_DatasetSplit, DTO_ConfusionMatrix, DTO_Metrics, DTO_FeatureImportanceRow
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 import os
 import pandas as pd
@@ -29,7 +29,7 @@ router = APIRouter(
 def run(
     objFile: UploadFile = File(...),
     objDB: Session = Depends(connect_db)
-) -> DTO_Respond_UploadTrainingData:
+) -> DTO_Respond_UploadDataFrame:
     try:
         tblLatestTraining = pd.read_csv(objFile.file)
     except Exception:
@@ -104,7 +104,7 @@ def run(
         for rowRow in tblLatestTraining
     ]
 
-    return DTO_Respond_UploadTrainingData(
+    return DTO_Respond_UploadDataFrame(
         dicStatus = {200:"Success"},
         tblOutput = tblLatestTraining
     )
@@ -127,7 +127,7 @@ def run(
     #######      Step 1: Load Training Framework     #######
     #######                                          #######
     ########################################################
-    objModellingClass = ChurnPredictionModel.ChurnPredictionModel(
+    objModel = ChurnPredictionModel.ChurnPredictionModel(
         strPathTrainDataset = os.path.join(config.strPathStorageML, config.strNameCSVTrain),
         strPathToSaveModels = config.strPathStorageML
     )
@@ -137,7 +137,7 @@ def run(
     #######                                          #######
     ########################################################
     timeStart = datetime.datetime.time()
-    objModellingClass.run_training(boolVerbose = False)
+    objModel.run_training(boolVerbose = False)
     timeEnd = datetime.datetime.time()
     
     ########################################################
@@ -147,33 +147,33 @@ def run(
     ########################################################
     # Step 3.1: Save physically
     joblib.dump(
-        objModellingClass, 
+        objModel, 
         os.path.join(config.strPathStorageML, config.strNameMLFinal)
     ) 
     # Step 3.2: Save to server
-    objServer.state.model = objModellingClass
+    objServer.state.model = objModel
 
     ########################################################
     #######                                          #######
     #######           Step 4: Save Metrics           #######
     #######                                          #######
     ########################################################
-    cm = objModellingClass.objConfusionMatrix
+    cm = objModel.objConfusionMatrix
     rowModel = Historical_Models(
         meta_Id =  f"{uuid.uuid4()}" ,
         meta_DateCreated = datetime.datetime.now(),
-        Accuracy = objModellingClass.fltAccuracy,
-        Precision = objModellingClass.fltPrecision,
-        Recall = objModellingClass.fltRecall,
-        F1 = objModellingClass.fltF1,
+        Accuracy = objModel.fltAccuracy,
+        Precision = objModel.fltPrecision,
+        Recall = objModel.fltRecall,
+        F1 = objModel.fltF1,
         CountTrueNegative = cm[0][0],
         CountFalsePositive = cm[0][1],
         CountFalseNegative = cm[1][0],
         CountTruePositive = cm[1][1],
-        CountTrainingPositiveClass = objModellingClass.intCountTrainPositiveClass,
-        CountTrainingNegativeClass = objModellingClass.intCountTrainNegativeClass,
-        CountTestPositiveClass = objModellingClass.intCountTestPositiveClass,
-        CountTestNegativeClass = objModellingClass.intCountTestNegativeClass
+        CountTrainingPositiveClass = objModel.intCountTrainPositiveClass,
+        CountTrainingNegativeClass = objModel.intCountTrainNegativeClass,
+        CountTestPositiveClass = objModel.intCountTestPositiveClass,
+        CountTestNegativeClass = objModel.intCountTestNegativeClass
     )
     objDB.add(rowModel)
     objDB.commit()
@@ -183,10 +183,10 @@ def run(
         timeTaken = timeEnd-timeStart,
         dateCreated = datetime.datetime.now(),
         objDatasetSplit = DTO_DatasetSplit(
-                intNegativeTesting = objModellingClass.intCountTestNegativeClass,
-                intNegativeTraining = objModellingClass.intCountTrainNegativeClass,
-                intPositiveTesting = objModellingClass.intCountTestPositiveClass,
-                intPositiveTraining = objModellingClass.intCountTrainPositiveClass,
+                intNegativeTesting = objModel.intCountTestNegativeClass,
+                intNegativeTraining = objModel.intCountTrainNegativeClass,
+                intPositiveTesting = objModel.intCountTestPositiveClass,
+                intPositiveTraining = objModel.intCountTrainPositiveClass,
             ),
         objConfusionMatrix = DTO_ConfusionMatrix(
                 intFalseNegative = cm[1][0],
@@ -195,10 +195,10 @@ def run(
                 intTruePositive = cm[1][1],
             ),
         objMetrics = DTO_Metrics(
-                fltAccuracy = objModellingClass.fltAccuracy,
-                fltPrecision = objModellingClass.fltPrecision,
-                fltRecall = objModellingClass.fltRecall,
-                fltF1 = objModellingClass.fltF1,
+                fltAccuracy = objModel.fltAccuracy,
+                fltPrecision = objModel.fltPrecision,
+                fltRecall = objModel.fltRecall,
+                fltF1 = objModel.fltF1,
             ),
         # TODO: check if we have this in the classs
         #tblFeatureImportance = list[DTO_FeatureImportanceRow]

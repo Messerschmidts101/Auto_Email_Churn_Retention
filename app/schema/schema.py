@@ -14,7 +14,7 @@ class DTO_DatasetRow(BaseModel):
     anyValue: Any
     intIndex: int
 
-class DTO_Respond_UploadTrainingData(BaseModel):
+class DTO_Respond_UploadDataFrame(BaseModel):
     dicStatus: dict # sample {500: 'Cant read file'}
     tblOutput: list[dict[str, Any]]
 
@@ -60,10 +60,6 @@ class DTO_Request_UploadScoringData(BaseModel):
     boolVerbose: bool = False
     #file object is expected
     #soon requires user id
-
-class DTO_Respond_UploadScoringData(BaseModel):
-    dicStatus: dict # sample {500: 'Cant read file'}
-    tblOutput: list[dict[str, Any]]
 
 class DTO_Respond_RunScoring(BaseModel):
     dicStatus: dict # sample {500: 'Cant read file'}
