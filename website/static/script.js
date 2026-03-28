@@ -1,3 +1,18 @@
+const API_CONFIG = {
+    train: {
+        inputId: 'train-file',
+        previewId: 'uploaded-train-preview',
+        uploadUrl: '/train/upload',
+        uploadLabel: 'training'
+    },
+    score: {
+        inputId: 'score-file',
+        previewId: 'uploaded-scoring-preview',
+        uploadUrl: '/score/upload',
+        uploadLabel: 'scoring'
+    }
+};
+
 function showSection(sectionId) {
     document.querySelectorAll('.section').forEach(section => {
         section.classList.add('hidden');
@@ -5,237 +20,312 @@ function showSection(sectionId) {
     document.getElementById(sectionId).classList.remove('hidden');
 }
 
-// Upload CSV handler with dynamic preview
-function uploadCSV(type) {
-    const fileInput = document.getElementById(`${type}-file`);
+function normalizeTableData(data) {
+    if (Array.isArray(data)) {
+        return data;
+    }
+    if (data && typeof data === 'object') {
+        return [data];
+    }
+    return [];
+}
+
+function toNumber(id, fallbackValue) {
+    const rawValue = document.getElementById(id)?.value;
+    const parsedValue = Number(rawValue);
+    return Number.isFinite(parsedValue) ? parsedValue : fallbackValue;
+}
+
+function buildMetadataLine(timeTaken, dateCreated) {
+    const fragments = [];
+
+    if (timeTaken !== undefined && timeTaken !== null && timeTaken !== '') {
+        fragments.push(`Time Taken: ${timeTaken} seconds`);
+    }
+    if (dateCreated) {
+        fragments.push(`Date Created: ${dateCreated}`);
+    }
+
+    return fragments.join(' | ');
+}
+
+function setButtonEnabled(buttonId, enabled) {
+    const button = document.getElementById(buttonId);
+    if (!button) {
+        return;
+    }
+
+    button.disabled = !enabled;
+    button.style.backgroundColor = enabled ? '#4caf50' : '#ccc';
+    button.style.cursor = enabled ? 'pointer' : 'not-allowed';
+
+    if (enabled) {
+        button.removeAttribute('title');
+    }
+}
+
+function startProgress(spinnerId, containerId, barId, labelId) {
+    const spinner = document.getElementById(spinnerId);
+    const container = document.getElementById(containerId);
+    const bar = document.getElementById(barId);
+    const label = document.getElementById(labelId);
+
+    spinner.style.display = 'block';
+    container.style.display = 'block';
+    bar.style.width = '0%';
+    label.textContent = '0%';
+
+    let percent = 0;
+    const totalDuration = 900000;
+    const interval = 1000;
+    const increment = 100 / (totalDuration / interval);
+
+    const timer = setInterval(() => {
+        percent = Math.min(100, percent + increment);
+        bar.style.width = `${percent}%`;
+        label.textContent = `${Math.floor(percent)}%`;
+    }, interval);
+
+    return { spinner, container, bar, label, timer };
+}
+
+function stopProgress(progressState, markComplete = false) {
+    if (!progressState) {
+        return;
+    }
+
+    clearInterval(progressState.timer);
+    progressState.bar.style.width = markComplete ? '100%' : '0%';
+    progressState.label.textContent = markComplete ? '100%' : '0%';
+    progressState.spinner.style.display = 'none';
+    progressState.container.style.display = 'none';
+}
+
+async function fetchJson(url, options = {}, fallbackError = 'Request failed.') {
+    const response = await fetch(url, options);
+    let data = null;
+
+    try {
+        data = await response.json();
+    } catch (error) {
+        data = null;
+    }
+
+    if (!response.ok) {
+        const detail = Array.isArray(data?.detail)
+            ? data.detail.map(item => item.msg).join(', ')
+            : data?.detail;
+        const statusText = data?.dicStatus ? JSON.stringify(data.dicStatus) : '';
+        throw new Error(detail || statusText || fallbackError);
+    }
+
+    return data;
+}
+
+async function uploadCSV(type) {
+    const config = API_CONFIG[type];
+    const fileInput = document.getElementById(config?.inputId);
     const file = fileInput?.files?.[0];
+
+    if (!config) {
+        alert('Unknown upload type.');
+        return;
+    }
+
     if (!file) {
-        alert("Please select a CSV file.");
+        alert('Please select a CSV file.');
         return;
     }
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('objFile', file);
 
-    fetch(`/upload_${type}`, {
-        method: 'POST',
-        body: formData
-    })
-        .then(res => res.json())
-        .then(data => {
-            alert(`${type} CSV uploaded.`);
-            const target = type === 'train' ? 'uploaded-train-preview' : 'uploaded-scoring-preview';
-            displayTable(data, target);
-        })
-        .catch(err => {
-            console.error('Upload error:', err);
-            alert(`Upload failed for ${type}.`);
-        });
+    try {
+        const data = await fetchJson(
+            config.uploadUrl,
+            {
+                method: 'POST',
+                body: formData
+            },
+            `Upload failed for ${config.uploadLabel}.`
+        );
+
+        alert(`${config.uploadLabel} CSV uploaded.`);
+        displayTable(data.tblOutput, config.previewId);
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert(error.message || `Upload failed for ${config.uploadLabel}.`);
+    }
 }
 
-// Train model
-function trainModel() {
-    const spinner = document.getElementById('loading-spinner-training-details-preview');
-    spinner.style.display = 'block'; // Show spinner
-    const progressBarContainer = document.getElementById('progress-bar-container-train');
-    const progressBar = document.getElementById('progress-bar-train');
-    const progressLabel = document.getElementById('progress-label-train');
+function getTrainingRequestBody() {
+    return {
+        intRandomState: toNumber('train-random-state', 0),
+        intTopFeats: toNumber('train-top-feats', 20),
+        fltF1: toNumber('train-f1-threshold', 1)
+    };
+}
 
-    // Show loading UI
+async function trainModel() {
+    const progress = startProgress(
+        'loading-spinner-training-details-preview',
+        'progress-bar-container-train',
+        'progress-bar-train',
+        'progress-label-train'
+    );
+    const timeDetails = document.getElementById('time-details');
+    const featureImportanceSection = document.getElementById('feature-importance-section');
+    const featureImportancePreview = document.getElementById('feature-importance-preview');
+
+    try {
+        const data = await fetchJson(
+            '/train/model',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(getTrainingRequestBody())
+            },
+            'Model training failed.'
+        );
+
+        stopProgress(progress, true);
+        alert('Training finished.');
+
+        displayTable(data.objDatasetSplit, 'training-details-preview');
+        displayTable(data.objMetrics, 'metrics-details-preview');
+        displayTable(data.objConfusionMatrix, 'confusion-metrix-details-preview');
+        timeDetails.textContent = buildMetadataLine(data.timeTaken, data.dateCreated);
+
+        if (Array.isArray(data.tblFeatureImportance) && data.tblFeatureImportance.length > 0) {
+            featureImportanceSection.classList.remove('hidden');
+            displayTable(data.tblFeatureImportance, 'feature-importance-preview');
+        } else if (featureImportanceSection && featureImportancePreview) {
+            featureImportanceSection.classList.add('hidden');
+            featureImportancePreview.innerHTML = '';
+        }
+
+        setButtonEnabled('btn-proceed-inference', true);
+    } catch (error) {
+        console.error('Training error:', error);
+        alert(error.message || 'Model training failed.');
+        stopProgress(progress, false);
+    }
+}
+
+async function inferenceModel() {
+    const progress = startProgress(
+        'loading-spinner-inference-progress',
+        'progress-bar-container-infer',
+        'progress-bar-infer',
+        'progress-label-infer'
+    );
+    const timeDetails = document.getElementById('inference-time-details');
+
+    try {
+        const data = await fetchJson(
+            '/score/model',
+            {
+                method: 'POST'
+            },
+            'Inference failed.'
+        );
+
+        stopProgress(progress, true);
+        alert('Inference complete.');
+        displayTable(data.tblOutput, 'churn-report-result');
+        timeDetails.textContent = buildMetadataLine(data.timeTaken, data.dateCreated);
+    } catch (error) {
+        console.error('Inference error:', error);
+        alert(error.message || 'Inference failed.');
+        stopProgress(progress, false);
+    }
+}
+
+async function createEmail() {
+    const spinner = document.getElementById('loading-spinner-email-generation-result');
     spinner.style.display = 'block';
-    progressBarContainer.style.display = 'block';
 
-    // Start fake progress
-    let percent = 0;
-    const totalDuration = 900000; // 10 minutes in milliseconds
-    const interval = 1000;         // update every 1 second
-    const increment = 100 / (totalDuration / interval);
-
-    const timer = setInterval(() => {
-        percent = Math.min(100, percent + increment);
-        progressBar.style.width = `${percent}%`;
-        progressLabel.textContent = `${Math.floor(percent)}%`;
-    }, interval);
-    fetch('/train_model')
-        .then(res => res.json())
-        .then(data => {
-            
-            // Conclude timer
-            clearInterval(timer);
-            percent = 100;
-            progressBar.style.width = `100%`;
-            progressLabel.textContent = `100%`;
-            alert('training finished.');
-            spinner.style.display = 'none';
-            progressBarContainer.style.display = 'none';
-
-            // Show Tables
-            displayTable(data.samples, "training-details-preview");
-            displayTable(data.metrics, 'metrics-details-preview');
-            displayTable(data.confusion_matrix, 'confusion-metrix-details-preview');
-            document.getElementById('time-details').textContent = `Time Taken: ${data.time} seconds`;
-
-            // Enable the Step 3 button after training finishes
-            const proceedButton = document.getElementById('btn-proceed-inference');
-            proceedButton.disabled = false;
-            proceedButton.style.backgroundColor = '#4caf50';
-            proceedButton.style.cursor = 'pointer';
-            proceedButton.removeAttribute('title');
-
-        })
-        .catch(err => {
-            console.error('Training error:', err);
-            alert('Model training failed.');
-        }).finally(() => {
-            spinner.style.display = 'none'; // Hide spinner
-        });
+    try {
+        const data = await fetchJson('/create_emails', {}, 'Email generation failed.');
+        alert('Email generation complete.');
+        displayTable(data.tblOutput || data, 'email-generation-result');
+        setButtonEnabled('btn-send-email', true);
+    } catch (error) {
+        console.error('Email generation error:', error);
+        alert(error.message || 'Email generation failed.');
+    } finally {
+        spinner.style.display = 'none';
+    }
 }
 
-// Run inference
-function inferenceModel() {
-    const spinner = document.getElementById('loading-spinner-churn-report-result');
-    const progressBarContainer = document.getElementById('progress-bar-container-infer');
-    const progressBar = document.getElementById('progress-bar-infer');
-    const progressLabel = document.getElementById('progress-label-infer');
-
-    // Show loading UI
-    spinner.style.display = 'block';
-    progressBarContainer.style.display = 'block';
-
-    // Start fake progress
-    let percent = 0;
-    const totalDuration = 900000; // 10 minutes in milliseconds
-    const interval = 1000;         // update every 1 second
-    const increment = 100 / (totalDuration / interval);
-
-    const timer = setInterval(() => {
-        percent = Math.min(100, percent + increment);
-        progressBar.style.width = `${percent}%`;
-        progressLabel.textContent = `${Math.floor(percent)}%`;
-    }, interval);
-    fetch('/run_inference')
-        .then(res => res.json())
-        .then(data => {
-            
-            // Conclude timer
-            clearInterval(timer);
-            percent = 100;
-            progressBar.style.width = `100%`;
-            progressLabel.textContent = `100%`;
-            alert('training finished.');
-            spinner.style.display = 'none';
-            progressBarContainer.style.display = 'none';
-
-            // Display table
-            alert('Inference complete.');
-            displayTable(data, 'churn-report-result');
-        })
-        .catch(err => {
-            console.error('Inference error:', err);
-            alert('Inference failed.');
-        })
-        .finally(() => {
-            spinner.style.display = 'none'; // Hide spinner
-        });
-}
-
-// Create Emails
-function createEmail() {
-    const spinner = document.getElementById('loading-spinner-email-generation-result'); 
-    spinner.style.display = 'block'; // Show spinner
-    fetch('/create_emails') 
-        .then(res => res.json())
-        .then(data => {
-            alert('email generation complete.');
-            displayTable(data, 'email-generation-result'); 
-
-            // Enable the Step 4 button after training finishes
-            const sendEmailButton = document.getElementById('btn-send-email');
-            sendEmailButton.disabled = false;
-            sendEmailButton.style.backgroundColor = '#4caf50';
-            sendEmailButton.style.cursor = 'pointer';
-            sendEmailButton.removeAttribute('title');
-        })
-        .catch(err => {
-            console.error('Email generation error:', err);
-            alert('Email generation failed.');
-        })
-        .finally(() => {
-            spinner.style.display = 'none'; // Hide spinner
-        });
-}
-
-// View Results
-function viewResults(){
-    const spinner = document.getElementById('loading-spinner-view-results'); 
+async function viewResults() {
+    const spinner = document.getElementById('loading-spinner-view-results');
     const rowCountDiv = document.getElementById('view-result-result-row-count');
-    
     const strTableName = document.getElementById('table-type').value;
     const strTableVersion = document.getElementById('version-type').value;
-    spinner.style.display = 'block'; // Show spinner
-    fetch('/view_results', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body:JSON.stringify({
-            strTableName: strTableName,
-            strTableVersion: strTableVersion
-        })
-    }).then(res => res.json())
-      .then(data => {
-            console.log('Showing table content:')
-            console.log(strTableName)
-            console.log(strTableVersion)
-            spinner.style.display = 'none';
-            rowCountDiv.innerText = `Row count: ${data.row_count}`;
-            displayTable(data.records, 'view-result-result');
-      })
+
+    spinner.style.display = 'block';
+
+    try {
+        const data = await fetchJson(
+            '/view_results',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    strTableName,
+                    strTableVersion
+                })
+            },
+            'Unable to load results.'
+        );
+
+        rowCountDiv.innerText = `Row count: ${data.row_count}`;
+        displayTable(data.records, 'view-result-result');
+    } catch (error) {
+        console.error('View results error:', error);
+        rowCountDiv.innerText = error.message || 'Unable to load results.';
+        document.getElementById('view-result-result').innerHTML = '';
+    } finally {
+        spinner.style.display = 'none';
+    }
 }
 
-
-
-// Send Emails
-function sendEmail() {
-    const spinner = document.getElementById('loading-spinner-send-email-result'); 
-    const btn = document.getElementById('btn-send-email');
+async function sendEmail() {
+    const spinner = document.getElementById('loading-spinner-send-email-result');
+    const button = document.getElementById('btn-send-email');
     const status = document.getElementById('send-email-status');
 
-    spinner.style.display = 'block'; 
-    btn.textContent = 'Sending...';
-    btn.disabled = true;
+    spinner.style.display = 'block';
+    button.textContent = 'Sending...';
+    button.disabled = true;
 
-    fetch('/send_emails') 
-        .then(res => res.json())
-        .then(data => {
-            status.textContent = '✅ Emails sent successfully!';
-            status.style.color = 'green';
-        })
-        .catch(err => {
-            console.error('Email sending error:', err);
-            status.textContent = '❌ Failed to send emails.';
-            status.style.color = 'red';
-        })
-        .finally(() => {
-            spinner.style.display = 'none'; 
-            btn.textContent = 'Send Emails To All Customers';
-            btn.disabled = false;
-        });
+    try {
+        await fetchJson('/send_emails', {}, 'Failed to send emails.');
+        status.textContent = 'Emails sent successfully.';
+        status.style.color = 'green';
+    } catch (error) {
+        console.error('Email sending error:', error);
+        status.textContent = error.message || 'Failed to send emails.';
+        status.style.color = 'red';
+    } finally {
+        spinner.style.display = 'none';
+        button.textContent = 'Send Emails To All Customers';
+        button.disabled = false;
+    }
 }
 
-// Display data table
 function displayTable(data, targetId) {
-    const container = document.getElementById(targetId);    
-    /*
-    ########################################################
-    #######                                          #######
-    #######         Step 1: Display Table            #######
-    #######                                          #######
-    ########################################################
-    */
+    const container = document.getElementById(targetId);
+    const rows = normalizeTableData(data);
+
     container.innerHTML = '';
 
-    if (!Array.isArray(data) || data.length === 0) {
+    if (rows.length === 0) {
         container.innerHTML = '<p>No data to display.</p>';
         return;
     }
@@ -244,10 +334,9 @@ function displayTable(data, targetId) {
     table.style.width = '100%';
     table.style.borderCollapse = 'collapse';
 
-    // Header
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    Object.keys(data[0]).forEach(key => {
+    Object.keys(rows[0]).forEach(key => {
         const th = document.createElement('th');
         th.textContent = key;
         th.style.cssText = 'border:1px solid #ccc;padding:6px;background:#f2f2f2;position:sticky;top:0';
@@ -256,15 +345,14 @@ function displayTable(data, targetId) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Body
     const tbody = document.createElement('tbody');
-    data.forEach(row => {
+    rows.forEach(row => {
         const tr = document.createElement('tr');
         Object.values(row).forEach(cell => {
-        const td = document.createElement('td');
-        td.textContent = cell;
-        td.style.cssText = 'border:1px solid #ccc;padding:6px;';
-        tr.appendChild(td);
+            const td = document.createElement('td');
+            td.textContent = cell;
+            td.style.cssText = 'border:1px solid #ccc;padding:6px;';
+            tr.appendChild(td);
         });
         tbody.appendChild(tr);
     });
@@ -272,34 +360,23 @@ function displayTable(data, targetId) {
     table.appendChild(tbody);
     container.appendChild(table);
 
-    /*
-    ########################################################
-    #######                                          #######
-    #######      Step 2: Create Download Button      #######
-    #######                 of Table                 #######
-    #######                                          #######
-    ########################################################
-    */
-
-    // 1. Create the button
-    let filename = `${targetId}.csv`;
+    const filename = `${targetId}.csv`;
     const button = document.createElement('button');
-    button.style.cssText = 'float: right; margin: 10px 0;'; // Button will be placed at right
-    button.textContent = 'Download Table';  // Button label
+    button.style.cssText = 'float: right; margin: 10px 0;';
+    button.textContent = 'Download Table';
     button.onclick = function () {
-        const header = Object.keys(data[0]);
+        const header = Object.keys(rows[0]);
         const csvRows = [header.join(',')];
 
-        data.forEach(row => {
-            const values = header.map(key => 
-                `"${String(row[key]).replace(/"/g, '""')}"` // escape quotes
+        rows.forEach(row => {
+            const values = header.map(key =>
+                `"${String(row[key]).replace(/"/g, '""')}"`
             );
             csvRows.push(values.join(','));
         });
 
         const csvContent = csvRows.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.setAttribute('download', filename);
@@ -308,10 +385,6 @@ function displayTable(data, targetId) {
         document.body.removeChild(link);
     };
 
-    // 2. Append the button to the div
     container.appendChild(document.createElement('br'));
     container.appendChild(button);
-
-
 }
-

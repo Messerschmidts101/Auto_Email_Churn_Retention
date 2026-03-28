@@ -77,12 +77,26 @@
                 <h3>Step 2: Run Training</h3>
                 <button onclick="trainModel()">Train Model</button>
                 <div id="time-details"></div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0;">
+                    <label>
+                        Random State
+                        <input type="number" id="train-random-state" value="0" />
+                    </label>
+                    <label>
+                        Top Features
+                        <input type="number" id="train-top-feats" value="20" min="1" />
+                    </label>
+                    <label>
+                        F1 Target
+                        <input type="number" id="train-f1-threshold" value="1" min="0" step="0.01" />
+                    </label>
+                </div>
 
                 <div style="margin-top: 1rem;">
                     <h4>Training Details:</h4>
                     <div id="progress-bar-container-train" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
                         <img id="loading-spinner-training-details-preview" 
-                             src="{{ url_for('static', filename='loading-spin.gif') }}" 
+                             src="/static/loading-spin.gif" 
                              alt="Loading..." 
                              style="display: none; width: 40px;" />
                         <div style="width: 100%; background-color: #e0e0e0;">
@@ -91,7 +105,7 @@
                         <p id="progress-label-train" style="margin: 5px 0 0 0;">0%</p>
                     </div>
 
-                    <h5>Dataset Details:</h5>
+                    <h5>Dataset Split:</h5>
                     <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
 
                     <h5>Metrics Details:</h5>
@@ -99,6 +113,11 @@
 
                     <h5>Confusion Matrix:</h5>
                     <div id="confusion-metrix-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+
+                    <div id="feature-importance-section" class="hidden">
+                        <h5>Feature Importance:</h5>
+                        <div id="feature-importance-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+                    </div>
                 </div>
 
                 <h3>Step 3: Proceed To Inferencing</h3>
@@ -118,8 +137,8 @@
                 <h2>Inference Model</h2>
 
                 <h3>Step 1: Upload Scoring Data</h3>
-                <input type="file" id="scoring-file" accept=".csv" />
-                <button onclick="uploadCSV('scoring')">Upload</button>
+                <input type="file" id="score-file" accept=".csv" />
+                <button onclick="uploadCSV('score')">Upload</button>
 
                 <div style="margin-top: 1rem;">
                     <h4>Scoring Data Preview:</h4>
@@ -127,10 +146,11 @@
                 </div>
 
                 <h3>Step 2: Run Inference</h3>
-                <button onclick="inferenceModel('scoring')">Predict</button>
+                <button onclick="inferenceModel()">Predict</button>
+                <div id="inference-time-details"></div>
                 <div id="progress-bar-container-infer" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
-                    <img id="loading-spinner-training-details-preview" 
-                         src="{{ url_for('static', filename='loading-spin.gif') }}" 
+                    <img id="loading-spinner-inference-progress" 
+                         src="/static/loading-spin.gif" 
                          alt="Loading..." 
                          style="display: none; width: 40px;" />
                     <div style="width: 100%; background-color: #e0e0e0;">
@@ -143,7 +163,6 @@
                     <h4>Churn Report Result:</h4>
                     <div id="churn-report-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
                 </div>
-                <img id="loading-spinner-churn-report-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
 
                 <h3>Step 3: Create Emails</h3>
                 <button onclick="createEmail('scoring')">Generate</button>
@@ -151,10 +170,10 @@
                     <h4>Email Generation Result:</h4>
                     <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
                 </div>
-                <img id="loading-spinner-email-generation-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+                <img id="loading-spinner-email-generation-result" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px;" />
 
                 <h3>Step 4: Send Emails</h3>
-                <img id="loading-spinner-send-email-result" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px;" />
+                <img id="loading-spinner-send-email-result" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px;" />
                 <button 
                     id="btn-send-email" 
                     onclick="sendEmail()" 
@@ -191,10 +210,10 @@
                 <div id="view-result-result" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc;">
                     <!-- TODO: Result table will be populated here -->
                 </div>
-                <img id="loading-spinner-view-results" src="{{ url_for('static', filename='loading-spin.gif') }}" alt="Loading..." style="display: none; width: 40px; margin-top: 10px;" />
+                <img id="loading-spinner-view-results" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px; margin-top: 10px;" />
             </div>
         </div>
 
-        <script src="{{ url_for('static', filename='script.js') }}"></script>
+        <script src="/static/script.js"></script>
     </body>
 </html>

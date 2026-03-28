@@ -1,14 +1,24 @@
 # python -m app.core.server_web
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import pickle
 import os
+from pathlib import Path
 
 #from app.routes.api_database import router as database_router
 #from app.routes.api_inference import router as inference_router
-from app.routes.api_modelling import router as modelling_router
+from app.routes.api_modelling import router as training_router
+from app.routes.api_inference import router as scoring_router
 
 from app.db.database import objEngine, objBase
+
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+WEBSITE_DIR = BASE_DIR / "website"
+STATIC_DIR = WEBSITE_DIR / "static"
+INDEX_PATH = WEBSITE_DIR / "index.html"
 
 
 @asynccontextmanager
@@ -58,8 +68,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    app.include_router(modelling_router)
-    #app.include_router(inference_router)
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def landing_page():
+        return FileResponse(INDEX_PATH)
+
+    app.include_router(training_router)
+    app.include_router(scoring_router)
     #app.include_router(database_router)
 
     return app

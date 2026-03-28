@@ -8,6 +8,7 @@ from app.db.schema import Historical_Training, Latest_Training, Historical_Model
 from sqlalchemy.orm import Session
 from app.db.database import connect_db
 import datetime
+import time
 import uuid
 from model.ChurnPredictionModel import ChurnPredictionModel
 import joblib
@@ -127,7 +128,7 @@ def run(
     #######      Step 1: Load Training Framework     #######
     #######                                          #######
     ########################################################
-    objModel = ChurnPredictionModel.ChurnPredictionModel(
+    objModel = ChurnPredictionModel(
         strPathTrainDataset = os.path.join(config.strPathStorageML, config.strNameCSVTrain),
         strPathToSaveModels = config.strPathStorageML
     )
@@ -136,9 +137,9 @@ def run(
     #######      Step 2: Run Training Framework      #######
     #######                                          #######
     ########################################################
-    timeStart = datetime.datetime.time()
+    timeStart = time.perf_counter()
     objModel.run_training(boolVerbose = False)
-    timeEnd = datetime.datetime.time()
+    timeTaken = time.perf_counter() - timeStart
     
     ########################################################
     #######                                          #######
@@ -159,47 +160,59 @@ def run(
     #######                                          #######
     ########################################################
     cm = objModel.objConfusionMatrix
+    dateCreated = datetime.datetime.now()
+    accuracy = float(objModel.fltAccuracy)
+    precision = float(objModel.fltPrecision)
+    recall = float(objModel.fltRecall)
+    f1 = float(objModel.fltF1)
+    intTrueNegative = int(cm[0][0])
+    intFalsePositive = int(cm[0][1])
+    intFalseNegative = int(cm[1][0])
+    intTruePositive = int(cm[1][1])
+    intTrainingPositiveClass = int(objModel.intCountTrainPositiveClass)
+    intTrainingNegativeClass = int(objModel.intCountTrainNegativeClass)
+    intTestPositiveClass = int(objModel.intCountTestPositiveClass)
+    intTestNegativeClass = int(objModel.intCountTestNegativeClass)
     rowModel = Historical_Models(
         meta_Id =  f"{uuid.uuid4()}" ,
-        meta_DateCreated = datetime.datetime.now(),
-        Accuracy = objModel.fltAccuracy,
-        Precision = objModel.fltPrecision,
-        Recall = objModel.fltRecall,
-        F1 = objModel.fltF1,
-        CountTrueNegative = cm[0][0],
-        CountFalsePositive = cm[0][1],
-        CountFalseNegative = cm[1][0],
-        CountTruePositive = cm[1][1],
-        CountTrainingPositiveClass = objModel.intCountTrainPositiveClass,
-        CountTrainingNegativeClass = objModel.intCountTrainNegativeClass,
-        CountTestPositiveClass = objModel.intCountTestPositiveClass,
-        CountTestNegativeClass = objModel.intCountTestNegativeClass
+        meta_DateCreated = dateCreated.date(),
+        Accuracy = accuracy,
+        Precision = precision,
+        Recall = recall,
+        F1 = f1,
+        CountTrueNegative = intTrueNegative,
+        CountFalsePositive = intFalsePositive,
+        CountFalseNegative = intFalseNegative,
+        CountTruePositive = intTruePositive,
+        CountTrainingPositiveClass = intTrainingPositiveClass,
+        CountTrainingNegativeClass = intTrainingNegativeClass,
+        CountTestPositiveClass = intTestPositiveClass,
+        CountTestNegativeClass = intTestNegativeClass
     )
     objDB.add(rowModel)
     objDB.commit()
 
     return DTO_Respond_RunTraining(
         dicStatus = {200:"Success"},
-        timeTaken = timeEnd-timeStart,
-        dateCreated = datetime.datetime.now(),
+        timeTaken = timeTaken,
+        dateCreated = dateCreated.isoformat(),
         objDatasetSplit = DTO_DatasetSplit(
-                intNegativeTesting = objModel.intCountTestNegativeClass,
-                intNegativeTraining = objModel.intCountTrainNegativeClass,
-                intPositiveTesting = objModel.intCountTestPositiveClass,
-                intPositiveTraining = objModel.intCountTrainPositiveClass,
+                intNegativeTesting = intTestNegativeClass,
+                intNegativeTraining = intTrainingNegativeClass,
+                intPositiveTesting = intTestPositiveClass,
+                intPositiveTraining = intTrainingPositiveClass,
             ),
         objConfusionMatrix = DTO_ConfusionMatrix(
-                intFalseNegative = cm[1][0],
-                intFalsePositive = cm[0][1],
-                intTrueNegative = cm[0][0],
-                intTruePositive = cm[1][1],
+                intFalseNegative = intFalseNegative,
+                intFalsePositive = intFalsePositive,
+                intTrueNegative = intTrueNegative,
+                intTruePositive = intTruePositive,
             ),
         objMetrics = DTO_Metrics(
-                fltAccuracy = objModel.fltAccuracy,
-                fltPrecision = objModel.fltPrecision,
-                fltRecall = objModel.fltRecall,
-                fltF1 = objModel.fltF1,
+                fltAccuracy = accuracy,
+                fltPrecision = precision,
+                fltRecall = recall,
+                fltF1 = f1,
             ),
-        # TODO: check if we have this in the classs
-        #tblFeatureImportance = list[DTO_FeatureImportanceRow]
+        tblFeatureImportance = []
     )
