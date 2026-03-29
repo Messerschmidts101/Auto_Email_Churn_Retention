@@ -3,215 +3,622 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>AI Model Trainer & Scorer</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 0;
-                display: flex;
-                height: 100vh;
-            }
-            .sidebar {
-                width: 200px;
-                background-color: #2c3e50;
-                color: white;
-                padding: 1rem;
-            }
-            .sidebar button {
-                display: block;
-                width: 100%;
-                margin: 1rem 0;
-                padding: 0.5rem;
-                background-color: #34495e;
-                border: none;
-                color: white;
-                cursor: pointer;
-            }
-            .main {
-                flex-grow: 1;
-                padding: 2rem;
-                overflow-y: auto;
-            }
-            .hidden {
-                display: none;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 1rem;
-            }
-            th, td {
-                border: 1px solid #ccc;
-                padding: 0.5rem;
-            }
-            input[type="file"] {
-                margin-top: 1rem;
-            }
-            #result-table {
-                max-height: 400px;
-                overflow-y: auto;
-            }
-        </style>
+        <title>Churn Ops Console</title>
+        <link rel="stylesheet" href="/static/styles.css" />
     </head>
     <body>
-        <div class="sidebar">
-            <button onclick="showSection('train-section')">Train Model</button>
-            <button onclick="showSection('inference-section')">Run Inference</button>
-            <button onclick="showSection('results')">View Results</button>
-        </div>
+        <div class="ambient-orb ambient-orb-left" aria-hidden="true"></div>
+        <div class="ambient-orb ambient-orb-right" aria-hidden="true"></div>
 
-        <div class="main">
-            <!-- Train Section -->
-            <div id="train-section" class="section">
-                <h2>Train Your Model</h2>
-
-                <h3>Step 1: Upload Training Data</h3>
-                <input type="file" id="train-file" accept=".csv" />
-                <button onclick="uploadCSV('train')">Upload</button>
-
-                <div style="margin-top: 1rem;">
-                    <h4>Training Data Preview:</h4>
-                    <div id="uploaded-train-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+        <div class="app-shell">
+            <aside class="sidebar panel">
+                <div class="brand-block">
+                    <span class="eyebrow">Retention Studio</span>
+                    <h1>Churn Ops Console</h1>
+                    <p>
+                        Train the churn model, score fresh customers, and stage the
+                        retention workflow from one place.
+                    </p>
                 </div>
 
-                <h3>Step 2: Run Training</h3>
-                <button onclick="trainModel()">Train Model</button>
-                <div id="time-details"></div>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0;">
-                    <label>
-                        Random State
-                        <input type="number" id="train-random-state" value="0" />
-                    </label>
-                    <label>
-                        Top Features
-                        <input type="number" id="train-top-feats" value="20" min="1" />
-                    </label>
-                    <label>
-                        F1 Target
-                        <input type="number" id="train-f1-threshold" value="1" min="0" step="0.01" />
-                    </label>
+                <nav class="nav-stack" aria-label="Primary navigation">
+                    <button
+                        type="button"
+                        class="nav-button is-active"
+                        data-section-target="train-section"
+                        onclick="showSection('train-section')"
+                    >
+                        01 Model Lab
+                    </button>
+                    <button
+                        type="button"
+                        class="nav-button"
+                        data-section-target="inference-section"
+                        onclick="showSection('inference-section')"
+                    >
+                        02 Scoring Run
+                    </button>
+                    <button
+                        type="button"
+                        class="nav-button"
+                        data-section-target="results"
+                        onclick="showSection('results')"
+                    >
+                        03 Result Vault
+                    </button>
+                </nav>
+
+                <div class="status-stack">
+                    <div class="status-pill">
+                        <span>Training lane</span>
+                        <strong id="stage-train-status" class="tone-neutral">
+                            Awaiting dataset
+                        </strong>
+                    </div>
+                    <div class="status-pill">
+                        <span>Scoring lane</span>
+                        <strong id="stage-score-status" class="tone-neutral">
+                            Waiting on model
+                        </strong>
+                    </div>
+                    <div class="status-pill">
+                        <span>Email lane</span>
+                        <strong id="stage-email-status" class="tone-warning">
+                            Placeholder only
+                        </strong>
+                    </div>
                 </div>
 
-                <div style="margin-top: 1rem;">
-                    <h4>Training Details:</h4>
-                    <div id="progress-bar-container-train" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
-                        <img id="loading-spinner-training-details-preview" 
-                             src="/static/loading-spin.gif" 
-                             alt="Loading..." 
-                             style="display: none; width: 40px;" />
-                        <div style="width: 100%; background-color: #e0e0e0;">
-                            <div id="progress-bar-train" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+                <div class="sidebar-note">
+                    <span class="eyebrow">Backend note</span>
+                    <p>
+                        Training, scoring, and result browsing stay live. The email
+                        workspace is intentionally presented as a placeholder until
+                        the backend endpoints are rebuilt.
+                    </p>
+                </div>
+            </aside>
+
+            <main class="content">
+                <div id="app-notice" class="notice-bar notice-neutral" role="status">
+                    Interface ready. Upload a dataset to begin.
+                </div>
+
+                <header class="hero panel animate-rise">
+                    <div class="hero-copy">
+                        <span class="eyebrow">Operational Dashboard</span>
+                        <h2>Sharper workflow, same live backend surface.</h2>
+                        <p>
+                            The UI now treats the project like a real operations
+                            console: training and scoring remain fully wired to the
+                            current FastAPI routes, while the email lane is clearly
+                            marked as a future backend handoff instead of a dead
+                            button.
+                        </p>
+                        <div class="hero-actions">
+                            <button
+                                type="button"
+                                class="primary-button"
+                                onclick="showSection('train-section')"
+                            >
+                                Start Training
+                            </button>
+                            <button
+                                type="button"
+                                class="ghost-button"
+                                onclick="showSection('inference-section')"
+                            >
+                                Open Scoring
+                            </button>
+                            <button
+                                type="button"
+                                class="ghost-button"
+                                onclick="showSection('results')"
+                            >
+                                Browse Tables
+                            </button>
                         </div>
-                        <p id="progress-label-train" style="margin: 5px 0 0 0;">0%</p>
                     </div>
 
-                    <h5>Dataset Split:</h5>
-                    <div id="training-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-
-                    <h5>Metrics Details:</h5>
-                    <div id="metrics-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-
-                    <h5>Confusion Matrix:</h5>
-                    <div id="confusion-metrix-details-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-
-                    <div id="feature-importance-section" class="hidden">
-                        <h5>Feature Importance:</h5>
-                        <div id="feature-importance-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <span class="kicker">Live now</span>
+                            <strong>Model training</strong>
+                            <p>Upload CSVs, run training, and review metrics.</p>
+                        </div>
+                        <div class="summary-card">
+                            <span class="kicker">Live now</span>
+                            <strong>Customer scoring</strong>
+                            <p>Run inference and inspect churn outputs instantly.</p>
+                        </div>
+                        <div class="summary-card">
+                            <span class="kicker">Planned</span>
+                            <strong>Email delivery</strong>
+                            <p>Held in preview mode until the backend catches up.</p>
+                        </div>
                     </div>
-                </div>
+                </header>
 
-                <h3>Step 3: Proceed To Inferencing</h3>
-                <button 
-                    id="btn-proceed-inference" 
-                    onclick="showSection('inference-section')" 
-                    disabled 
-                    style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20vh"
-                    title="Please complete training first"
-                >
-                    Proceed To Inferencing
-                </button>
-            </div>
-
-            <!-- Inference Section -->
-            <div id="inference-section" class="section hidden">
-                <h2>Inference Model</h2>
-
-                <h3>Step 1: Upload Scoring Data</h3>
-                <input type="file" id="score-file" accept=".csv" />
-                <button onclick="uploadCSV('score')">Upload</button>
-
-                <div style="margin-top: 1rem;">
-                    <h4>Scoring Data Preview:</h4>
-                    <div id="uploaded-scoring-preview" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
-
-                <h3>Step 2: Run Inference</h3>
-                <button onclick="inferenceModel()">Predict</button>
-                <div id="inference-time-details"></div>
-                <div id="progress-bar-container-infer" style="display: none; margin-top: 10px; width: 25%; min-width: 200px;">
-                    <img id="loading-spinner-inference-progress" 
-                         src="/static/loading-spin.gif" 
-                         alt="Loading..." 
-                         style="display: none; width: 40px;" />
-                    <div style="width: 100%; background-color: #e0e0e0;">
-                        <div id="progress-bar-infer" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+                <section id="train-section" class="section animate-rise">
+                    <div class="section-header">
+                        <div>
+                            <span class="eyebrow">Stage 01</span>
+                            <h2>Model Lab</h2>
+                            <p>
+                                Load the training set, tune the run, and inspect model
+                                quality before moving to inference.
+                            </p>
+                        </div>
                     </div>
-                    <p id="progress-label-infer" style="margin: 5px 0 0 0;">0%</p>
-                </div>
 
-                <div style="margin-top: 1rem;">
-                    <h4>Churn Report Result:</h4>
-                    <div id="churn-report-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
+                    <div class="workflow-grid">
+                        <article class="step-card panel">
+                            <span class="step-label">Step 1</span>
+                            <h3>Load training data</h3>
+                            <p>
+                                Upload the source CSV that will be used for the latest
+                                model run.
+                            </p>
 
-                <h3>Step 3: Create Emails</h3>
-                <button onclick="createEmail('scoring')">Generate</button>
-                <div style="margin-top: 1rem;">
-                    <h4>Email Generation Result:</h4>
-                    <div id="email-generation-result" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc;"></div>
-                </div>
-                <img id="loading-spinner-email-generation-result" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px;" />
+                            <label class="file-field" for="train-file">
+                                <span>Training CSV</span>
+                                <input type="file" id="train-file" accept=".csv" />
+                            </label>
+                            <p id="train-file-name" class="field-hint">
+                                No training file selected yet.
+                            </p>
 
-                <h3>Step 4: Send Emails</h3>
-                <img id="loading-spinner-send-email-result" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px;" />
-                <button 
-                    id="btn-send-email" 
-                    onclick="sendEmail()" 
-                    disabled 
-                    style="width: 100%; background-color: #ccc; color: white; cursor: not-allowed; height: 20vh"
-                    title="Please generate emails first"
-                >
-                    Send Emails To All Customers
-                </button>
-                <p id="send-email-status" style="margin-top: 10px; font-weight: bold;"></p>
-            </div>
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="primary-button"
+                                    onclick="uploadCSV('train')"
+                                >
+                                    Upload Training CSV
+                                </button>
+                            </div>
+                            <p id="train-upload-status" class="inline-status tone-neutral">
+                                Awaiting a training dataset.
+                            </p>
+                        </article>
 
-            <!-- Results Section -->
-            <div id="results" class="section hidden">
-                <h2>View Results</h2>
+                        <article class="step-card panel">
+                            <span class="step-label">Step 2</span>
+                            <h3>Run training</h3>
+                            <p>
+                                Keep the existing training API, but control it from a
+                                cleaner workspace.
+                            </p>
 
-                <div style="margin-bottom: 1rem;">
-                    <label for="table-type">Select Table Type:</label>
-                    <select id="table-type" onchange="viewResults()">
-                        <option value="training">Training</option>
-                        <option value="scoring">Scoring</option>
-                        <option value="scored">Scored</option>
-                        <option value="emails">Emails</option>
-                        <option value="models">Models</option>
-                    </select>
+                            <div class="input-grid">
+                                <label class="field" for="train-random-state">
+                                    <span>Random state</span>
+                                    <input type="number" id="train-random-state" value="0" />
+                                </label>
+                                <label class="field" for="train-top-feats">
+                                    <span>Top features</span>
+                                    <input
+                                        type="number"
+                                        id="train-top-feats"
+                                        value="20"
+                                        min="1"
+                                    />
+                                </label>
+                                <label class="field" for="train-f1-threshold">
+                                    <span>F1 target</span>
+                                    <input
+                                        type="number"
+                                        id="train-f1-threshold"
+                                        value="1"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </label>
+                            </div>
 
-                    <label for="version-type" style="margin-left: 1rem;">Select Version:</label>
-                    <select id="version-type" onchange="viewResults()">
-                        <option value="latest">Latest</option>
-                        <option value="historical">Historical</option>
-                    </select>
-                </div>
-                <div id="view-result-result-row-count"></div>
-                <div id="view-result-result" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc;">
-                    <!-- TODO: Result table will be populated here -->
-                </div>
-                <img id="loading-spinner-view-results" src="/static/loading-spin.gif" alt="Loading..." style="display: none; width: 40px; margin-top: 10px;" />
-            </div>
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="primary-button"
+                                    onclick="trainModel()"
+                                >
+                                    Train Model
+                                </button>
+                            </div>
+
+                            <p id="time-details" class="meta-line">
+                                No completed training run yet.
+                            </p>
+
+                            <div
+                                id="progress-bar-container-train"
+                                class="progress-shell hidden-progress"
+                            >
+                                <div class="progress-top">
+                                    <img
+                                        id="loading-spinner-training-details-preview"
+                                        class="spinner"
+                                        src="/static/loading-spin.gif"
+                                        alt="Training in progress"
+                                    />
+                                    <p class="progress-caption">
+                                        Training run in progress
+                                    </p>
+                                </div>
+                                <div class="progress-track">
+                                    <div id="progress-bar-train" class="progress-fill"></div>
+                                </div>
+                                <p id="progress-label-train" class="progress-meta">0%</p>
+                            </div>
+                        </article>
+
+                        <article class="step-card panel emphasis">
+                            <span class="step-label">Step 3</span>
+                            <h3>Unlock scoring</h3>
+                            <p>
+                                Once training finishes, move the workflow forward to
+                                score live customers with the latest model.
+                            </p>
+
+                            <div id="training-metric-cards" class="summary-grid">
+                                <div class="summary-card">
+                                    <span class="kicker">Metrics</span>
+                                    <strong>Pending run</strong>
+                                    <p>Training metrics will appear here after the model run.</p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                id="btn-proceed-inference"
+                                class="secondary-button is-disabled"
+                                onclick="showSection('inference-section')"
+                                data-disabled-title="Please complete training first."
+                                title="Please complete training first."
+                                disabled
+                            >
+                                Open Scoring Workspace
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="panel-grid">
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Training Data Preview</h3>
+                                    <p>The latest uploaded training dataset.</p>
+                                </div>
+                            </div>
+                            <div id="uploaded-train-preview" class="table-shell">
+                                <p class="empty-state">Upload a training CSV to preview it here.</p>
+                            </div>
+                        </article>
+
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Dataset Split</h3>
+                                    <p>Training and test distribution for the latest run.</p>
+                                </div>
+                            </div>
+                            <div id="training-split-cards" class="summary-grid">
+                                <div class="summary-card">
+                                    <span class="kicker">Split</span>
+                                    <strong>Pending run</strong>
+                                    <p>Counts will appear after training finishes.</p>
+                                </div>
+                            </div>
+                            <div id="training-details-preview" class="table-shell">
+                                <p class="empty-state">No dataset split available yet.</p>
+                            </div>
+                        </article>
+
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Model Metrics</h3>
+                                    <p>Accuracy, precision, recall, and F1 from the latest run.</p>
+                                </div>
+                            </div>
+                            <div id="metrics-details-preview" class="table-shell">
+                                <p class="empty-state">No model metrics available yet.</p>
+                            </div>
+                        </article>
+
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Confusion Matrix</h3>
+                                    <p>Latest classification breakdown from the training run.</p>
+                                </div>
+                            </div>
+                            <div id="training-confusion-cards" class="summary-grid">
+                                <div class="summary-card">
+                                    <span class="kicker">Confusion</span>
+                                    <strong>Pending run</strong>
+                                    <p>Matrix values will appear here after training.</p>
+                                </div>
+                            </div>
+                            <div id="confusion-metrix-details-preview" class="table-shell">
+                                <p class="empty-state">No confusion matrix available yet.</p>
+                            </div>
+                        </article>
+
+                        <article id="feature-importance-section" class="data-panel panel hidden">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Feature Importance</h3>
+                                    <p>Reserved for feature ranking output when available.</p>
+                                </div>
+                            </div>
+                            <div id="feature-importance-preview" class="table-shell">
+                                <p class="empty-state">No feature importance output available.</p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="inference-section" class="section hidden">
+                    <div class="section-header">
+                        <div>
+                            <span class="eyebrow">Stage 02</span>
+                            <h2>Scoring Run</h2>
+                            <p>
+                                Score fresh customers, inspect churn predictions, and
+                                stage the future email lane without pretending it is
+                                production-ready yet.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="workflow-grid">
+                        <article class="step-card panel">
+                            <span class="step-label">Step 1</span>
+                            <h3>Load scoring data</h3>
+                            <p>
+                                Upload the latest customer batch that should be scored
+                                by the current model.
+                            </p>
+
+                            <label class="file-field" for="score-file">
+                                <span>Scoring CSV</span>
+                                <input type="file" id="score-file" accept=".csv" />
+                            </label>
+                            <p id="score-file-name" class="field-hint">
+                                No scoring file selected yet.
+                            </p>
+
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="primary-button"
+                                    onclick="uploadCSV('score')"
+                                >
+                                    Upload Scoring CSV
+                                </button>
+                            </div>
+                            <p id="score-upload-status" class="inline-status tone-neutral">
+                                Upload a scoring dataset after the model is ready.
+                            </p>
+                        </article>
+
+                        <article class="step-card panel">
+                            <span class="step-label">Step 2</span>
+                            <h3>Run inference</h3>
+                            <p>
+                                Execute the current scoring route and capture customer
+                                churn output from the live backend.
+                            </p>
+
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="primary-button"
+                                    onclick="inferenceModel()"
+                                >
+                                    Score Customers
+                                </button>
+                            </div>
+
+                            <p id="inference-time-details" class="meta-line">
+                                No completed inference run yet.
+                            </p>
+                            <p id="inference-run-status" class="inline-status tone-neutral">
+                                Waiting on scoring output.
+                            </p>
+
+                            <div
+                                id="progress-bar-container-infer"
+                                class="progress-shell hidden-progress"
+                            >
+                                <div class="progress-top">
+                                    <img
+                                        id="loading-spinner-inference-progress"
+                                        class="spinner"
+                                        src="/static/loading-spin.gif"
+                                        alt="Inference in progress"
+                                    />
+                                    <p class="progress-caption">
+                                        Inference run in progress
+                                    </p>
+                                </div>
+                                <div class="progress-track">
+                                    <div id="progress-bar-infer" class="progress-fill"></div>
+                                </div>
+                                <p id="progress-label-infer" class="progress-meta">0%</p>
+                            </div>
+                        </article>
+
+                        <article class="step-card panel placeholder-panel">
+                            <span class="placeholder-badge">Backend placeholder</span>
+                            <h3>Email Workspace</h3>
+                            <p>
+                                The active FastAPI app does not currently expose the
+                                legacy email generation or delivery routes, so this
+                                stage is intentionally limited to preview mode.
+                            </p>
+
+                            <div class="placeholder-grid">
+                                <div class="placeholder-card">
+                                    <strong>Draft generation</strong>
+                                    <p>
+                                        Future backend work can turn churn-risk rows
+                                        into personalized retention copy.
+                                    </p>
+                                </div>
+                                <div class="placeholder-card">
+                                    <strong>Send pipeline</strong>
+                                    <p>
+                                        Delivery stays disabled until backend email
+                                        orchestration and safeguards are rebuilt.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="secondary-button"
+                                    onclick="createEmail()"
+                                >
+                                    Preview Email Workspace
+                                </button>
+                                <button
+                                    type="button"
+                                    id="btn-send-email"
+                                    class="primary-button is-disabled"
+                                    onclick="sendEmail()"
+                                    title="Email sending is not built yet."
+                                    disabled
+                                >
+                                    Send Emails To All Customers
+                                </button>
+                            </div>
+
+                            <p id="email-placeholder-status" class="inline-status tone-warning">
+                                Email actions are intentionally disabled until the
+                                backend is implemented.
+                            </p>
+                            <p id="send-email-status" class="inline-status tone-warning">
+                                Delivery remains a placeholder in this UI.
+                            </p>
+                        </article>
+                    </div>
+
+                    <div id="scoring-summary-cards" class="summary-grid">
+                        <div class="summary-card">
+                            <span class="kicker">Scoring</span>
+                            <strong>Pending run</strong>
+                            <p>Inference summary cards appear after scoring completes.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel-grid">
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Scoring Data Preview</h3>
+                                    <p>The latest uploaded scoring dataset.</p>
+                                </div>
+                            </div>
+                            <div id="uploaded-scoring-preview" class="table-shell">
+                                <p class="empty-state">Upload a scoring CSV to preview it here.</p>
+                            </div>
+                        </article>
+
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Churn Report Result</h3>
+                                    <p>Latest scored output returned by the backend.</p>
+                                </div>
+                            </div>
+                            <div id="churn-report-result" class="table-shell">
+                                <p class="empty-state">Run inference to inspect scored customers.</p>
+                            </div>
+                        </article>
+
+                        <article class="data-panel panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Email Preview Placeholder</h3>
+                                    <p>
+                                        Frontend-only staging area for the future email
+                                        generation and send workflow.
+                                    </p>
+                                </div>
+                            </div>
+                            <div id="email-generation-result" class="table-shell">
+                                <p class="empty-state">
+                                    Run inference, then preview how the email lane will
+                                    be staged once its backend is ready.
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="results" class="section hidden">
+                    <div class="section-header">
+                        <div>
+                            <span class="eyebrow">Stage 03</span>
+                            <h2>Result Vault</h2>
+                            <p>
+                                Browse the latest or historical tables already exposed
+                                by the database API.
+                            </p>
+                        </div>
+                    </div>
+
+                    <article class="data-panel panel">
+                        <div class="results-toolbar">
+                            <label class="field" for="table-type">
+                                <span>Table</span>
+                                <select id="table-type">
+                                    <option value="training">Training</option>
+                                    <option value="scoring">Scoring</option>
+                                    <option value="scored">Scored</option>
+                                    <option value="emails">Emails</option>
+                                    <option value="models">Models</option>
+                                </select>
+                            </label>
+
+                            <label class="field" for="version-type">
+                                <span>Version</span>
+                                <select id="version-type">
+                                    <option value="latest">Latest</option>
+                                    <option value="historical">Historical</option>
+                                </select>
+                            </label>
+
+                            <div class="action-row">
+                                <button
+                                    type="button"
+                                    class="primary-button"
+                                    onclick="viewResults()"
+                                >
+                                    Load Table
+                                </button>
+                                <img
+                                    id="loading-spinner-view-results"
+                                    class="spinner"
+                                    src="/static/loading-spin.gif"
+                                    alt="Loading results"
+                                />
+                            </div>
+                        </div>
+
+                        <p id="view-result-result-row-count" class="inline-status tone-neutral">
+                            Choose a table and load its data.
+                        </p>
+
+                        <div id="view-result-result" class="table-shell">
+                            <p class="empty-state">No result table loaded yet.</p>
+                        </div>
+                    </article>
+                </section>
+            </main>
         </div>
 
         <script src="/static/script.js"></script>

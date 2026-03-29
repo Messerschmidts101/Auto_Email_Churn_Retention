@@ -1,4 +1,4 @@
-from server_database import db, Historical_Training
+from app.db.schema import db, Historical_Training
 
 # Query all rows
 rows = db.session.query(Historical_Training).all()

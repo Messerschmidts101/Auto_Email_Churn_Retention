@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
-from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
+from app.db.server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
 import pandas as pd
 
 app = Flask(__name__)
