@@ -75,9 +75,9 @@ body::before {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+    grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
     gap: 1.5rem;
-    max-width: 1600px;
+    max-width: 1760px;
     margin: 0 auto;
     padding: 1.5rem;
 }
@@ -220,6 +220,7 @@ body::before {
 .content {
     display: grid;
     gap: 1.2rem;
+    min-width: 0;
 }
 
 .notice-bar {
@@ -374,7 +375,6 @@ button:disabled {
 }
 
 .workflow-grid,
-.panel-grid,
 .summary-grid,
 .placeholder-grid,
 .input-grid,
@@ -383,13 +383,28 @@ button:disabled {
     gap: 1rem;
 }
 
-.workflow-grid,
-.panel-grid {
+.workflow-grid {
     grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+}
+
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
 }
 
 .summary-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.metric-grid {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.metric-grid-2x2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .placeholder-grid {
@@ -403,6 +418,18 @@ button:disabled {
 .step-card,
 .data-panel {
     padding: 1.2rem;
+}
+
+.data-panel {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+    grid-column: span 6;
+    overflow: hidden;
+}
+
+.data-panel-wide {
+    grid-column: 1 / -1;
 }
 
 .step-card {
@@ -487,6 +514,40 @@ button:disabled {
     margin: 0;
     color: var(--muted);
     line-height: 1.55;
+}
+
+.metric-tile {
+    min-height: 120px;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(24, 42, 51, 0.1);
+    background: rgba(255, 255, 255, 0.76);
+    display: grid;
+    gap: 0.4rem;
+    align-content: start;
+}
+
+.metric-tile-empty {
+    grid-column: 1 / -1;
+}
+
+.metric-label {
+    font-size: 0.74rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.metric-value {
+    font-size: 1.7rem;
+    line-height: 1.05;
+}
+
+.metric-helper {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
 }
 
 .step-card.emphasis .summary-card p {
@@ -595,26 +656,30 @@ select:focus {
     height: 36px;
 }
 
-.data-panel {
-    display: grid;
-    gap: 1rem;
-}
-
 .panel-header {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
     align-items: flex-start;
+    min-width: 0;
 }
 
 .table-shell {
-    min-height: 220px;
+    min-height: 320px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
     padding: 1rem;
     border-radius: 18px;
     border: 1px solid rgba(24, 42, 51, 0.08);
     background: rgba(255, 255, 255, 0.6);
     display: grid;
     gap: 0.8rem;
+    overflow: hidden;
+}
+
+.data-panel-wide .table-shell {
+    min-height: 420px;
 }
 
 .table-toolbar {
@@ -623,6 +688,7 @@ select:focus {
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 .table-meta {
@@ -631,23 +697,30 @@ select:focus {
 }
 
 .table-scroll {
-    max-height: 400px;
-    overflow: auto;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
     border-radius: 14px;
     border: 1px solid rgba(24, 42, 51, 0.08);
 }
 
 table {
-    width: 100%;
-    min-width: 640px;
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
     border-collapse: separate;
     border-spacing: 0;
 }
 
 th,
 td {
-    padding: 0.78rem 0.9rem;
+    padding: 0.45rem 0.75rem;
     text-align: left;
+    vertical-align: top;
+    line-height: 1.2;
     border-bottom: 1px solid rgba(24, 42, 51, 0.08);
 }
 
@@ -660,6 +733,11 @@ th {
     font-size: 0.8rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    white-space: nowrap;
+}
+
+td {
+    white-space: nowrap;
 }
 
 tbody tr:nth-child(even) {
@@ -759,6 +837,15 @@ tbody tr:hover {
     .hero {
         grid-template-columns: 1fr;
     }
+
+    .panel-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .data-panel,
+    .data-panel-wide {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 720px) {
@@ -785,6 +872,10 @@ tbody tr:hover {
 
     .hero h2 {
         font-size: 2.2rem;
+    }
+
+    .metric-grid-2x2 {
+        grid-template-columns: 1fr;
     }
 
     table {

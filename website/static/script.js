@@ -19,6 +19,9 @@ const API_CONFIG = {
     },
 };
 
+const MAX_TABLE_RENDER_ROWS = 10000;
+const TABLE_VISIBLE_ROWS = 20;
+
 const UI_STATE = {
     trainingRows: [],
     scoringRows: [],
@@ -338,12 +341,13 @@ async function trainModel() {
         stopProgress(progress, true);
 
         renderKeyValueCards(data.objMetrics, "training-metric-cards");
-        renderKeyValueCards(data.objDatasetSplit, "training-split-cards");
-        renderKeyValueCards(data.objConfusionMatrix, "training-confusion-cards");
-
-        displayTable(data.objDatasetSplit, "training-details-preview", "No dataset split available.");
-        displayTable(data.objMetrics, "metrics-details-preview", "No model metrics available.");
-        displayTable(
+        renderMetricGrid(
+            data.objDatasetSplit,
+            "training-details-preview",
+            "No dataset split available."
+        );
+        renderMetricGrid(data.objMetrics, "metrics-details-preview", "No model metrics available.");
+        renderMetricGrid(
             data.objConfusionMatrix,
             "confusion-metrix-details-preview",
             "No confusion matrix available."
@@ -684,6 +688,40 @@ function renderKeyValueCards(data, targetId) {
     });
 }
 
+function renderMetricGrid(data, targetId, emptyMessage = "No data available yet.") {
+    const container = document.getElementById(targetId);
+    if (!container) {
+        return;
+    }
+
+    const records = normalizeTableData(data);
+    const firstRow = records[0];
+
+    container.innerHTML = "";
+
+    if (!firstRow) {
+        container.innerHTML = `
+            <div class="metric-tile metric-tile-empty">
+                <span class="metric-label">${escapeHtml(humanizeLabel(targetId))}</span>
+                <strong class="metric-value">Pending run</strong>
+                <p class="metric-helper">${escapeHtml(emptyMessage)}</p>
+            </div>
+        `;
+        return;
+    }
+
+    Object.entries(firstRow).forEach(([key, value]) => {
+        const tile = document.createElement("div");
+        tile.className = "metric-tile";
+        tile.innerHTML = `
+            <span class="metric-label">${escapeHtml(humanizeLabel(key))}</span>
+            <strong class="metric-value">${escapeHtml(formatSummaryValue(key, value))}</strong>
+            <p class="metric-helper">Latest training response.</p>
+        `;
+        container.appendChild(tile);
+    });
+}
+
 function renderEmailPlaceholderState(message) {
     const container = document.getElementById("email-generation-result");
     if (!container) {
@@ -769,7 +807,9 @@ function buildEmailPreviewCard(row) {
 
 function displayTable(data, targetId, emptyMessage = "No data to display.") {
     const container = document.getElementById(targetId);
-    const rows = normalizeTableData(data);
+    const allRows = normalizeTableData(data);
+    const rows = allRows.slice(0, MAX_TABLE_RENDER_ROWS);
+    const wasTruncated = allRows.length > MAX_TABLE_RENDER_ROWS;
 
     if (!container) {
         return;
@@ -777,7 +817,7 @@ function displayTable(data, targetId, emptyMessage = "No data to display.") {
 
     container.innerHTML = "";
 
-    if (rows.length === 0) {
+    if (allRows.length === 0) {
         container.innerHTML = `<p class="empty-state">${escapeHtml(emptyMessage)}</p>`;
         return;
     }
@@ -788,7 +828,9 @@ function displayTable(data, targetId, emptyMessage = "No data to display.") {
 
     const meta = document.createElement("p");
     meta.className = "table-meta";
-    meta.textContent = `${rows.length} row(s)`;
+    meta.textContent = wasTruncated
+        ? `Showing first ${rows.length.toLocaleString()} of ${allRows.length.toLocaleString()} row(s)`
+        : `${rows.length.toLocaleString()} row(s)`;
 
     const downloadButton = document.createElement("button");
     downloadButton.type = "button";
@@ -831,6 +873,32 @@ function displayTable(data, targetId, emptyMessage = "No data to display.") {
     tableScroll.appendChild(table);
 
     container.append(toolbar, tableScroll);
+    lockTableViewport(tableScroll, table, TABLE_VISIBLE_ROWS);
+}
+
+function lockTableViewport(tableScroll, table, visibleRows) {
+    if (!tableScroll || !table) {
+        return;
+    }
+
+    const header = table.querySelector("thead");
+    const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+
+    if (!header || bodyRows.length === 0) {
+        tableScroll.style.removeProperty("height");
+        tableScroll.style.removeProperty("max-height");
+        return;
+    }
+
+    const rowsToMeasure = bodyRows.slice(0, visibleRows);
+    const headerHeight = Math.ceil(header.getBoundingClientRect().height);
+    const rowsHeight = rowsToMeasure.reduce((total, row) => {
+        return total + Math.ceil(row.getBoundingClientRect().height);
+    }, 0);
+
+    const viewportHeight = headerHeight + rowsHeight + 2;
+    tableScroll.style.height = `${viewportHeight}px`;
+    tableScroll.style.maxHeight = `${viewportHeight}px`;
 }
 
 function downloadRowsAsCsv(rows, filename) {

@@ -283,7 +283,7 @@
                     </div>
 
                     <div class="panel-grid">
-                        <article class="data-panel panel">
+                        <article class="data-panel panel data-panel-wide">
                             <div class="panel-header">
                                 <div>
                                     <h3>Training Data Preview</h3>
@@ -302,15 +302,12 @@
                                     <p>Training and test distribution for the latest run.</p>
                                 </div>
                             </div>
-                            <div id="training-split-cards" class="summary-grid">
-                                <div class="summary-card">
-                                    <span class="kicker">Split</span>
-                                    <strong>Pending run</strong>
-                                    <p>Counts will appear after training finishes.</p>
+                            <div id="training-details-preview" class="metric-grid metric-grid-2x2">
+                                <div class="metric-tile metric-tile-empty">
+                                    <span class="metric-label">Dataset Split</span>
+                                    <strong class="metric-value">Pending run</strong>
+                                    <p class="metric-helper">Counts will appear after training finishes.</p>
                                 </div>
-                            </div>
-                            <div id="training-details-preview" class="table-shell">
-                                <p class="empty-state">No dataset split available yet.</p>
                             </div>
                         </article>
 
@@ -321,8 +318,12 @@
                                     <p>Accuracy, precision, recall, and F1 from the latest run.</p>
                                 </div>
                             </div>
-                            <div id="metrics-details-preview" class="table-shell">
-                                <p class="empty-state">No model metrics available yet.</p>
+                            <div id="metrics-details-preview" class="metric-grid metric-grid-2x2">
+                                <div class="metric-tile metric-tile-empty">
+                                    <span class="metric-label">Model Metrics</span>
+                                    <strong class="metric-value">Pending run</strong>
+                                    <p class="metric-helper">Metrics will appear after training finishes.</p>
+                                </div>
                             </div>
                         </article>
 
@@ -333,19 +334,22 @@
                                     <p>Latest classification breakdown from the training run.</p>
                                 </div>
                             </div>
-                            <div id="training-confusion-cards" class="summary-grid">
-                                <div class="summary-card">
-                                    <span class="kicker">Confusion</span>
-                                    <strong>Pending run</strong>
-                                    <p>Matrix values will appear here after training.</p>
+                            <div
+                                id="confusion-metrix-details-preview"
+                                class="metric-grid metric-grid-2x2"
+                            >
+                                <div class="metric-tile metric-tile-empty">
+                                    <span class="metric-label">Confusion Matrix</span>
+                                    <strong class="metric-value">Pending run</strong>
+                                    <p class="metric-helper">Matrix values will appear after training.</p>
                                 </div>
-                            </div>
-                            <div id="confusion-metrix-details-preview" class="table-shell">
-                                <p class="empty-state">No confusion matrix available yet.</p>
                             </div>
                         </article>
 
-                        <article id="feature-importance-section" class="data-panel panel hidden">
+                        <article
+                            id="feature-importance-section"
+                            class="data-panel panel data-panel-wide hidden"
+                        >
                             <div class="panel-header">
                                 <div>
                                     <h3>Feature Importance</h3>
@@ -515,7 +519,7 @@
                     </div>
 
                     <div class="panel-grid">
-                        <article class="data-panel panel">
+                        <article class="data-panel panel data-panel-wide">
                             <div class="panel-header">
                                 <div>
                                     <h3>Scoring Data Preview</h3>
@@ -527,7 +531,7 @@
                             </div>
                         </article>
 
-                        <article class="data-panel panel">
+                        <article class="data-panel panel data-panel-wide">
                             <div class="panel-header">
                                 <div>
                                     <h3>Churn Report Result</h3>
@@ -539,7 +543,7 @@
                             </div>
                         </article>
 
-                        <article class="data-panel panel">
+                        <article class="data-panel panel data-panel-wide">
                             <div class="panel-header">
                                 <div>
                                     <h3>Email Preview Placeholder</h3>
