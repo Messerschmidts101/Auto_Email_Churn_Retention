@@ -269,23 +269,20 @@ async function viewResults() {
     spinner.style.display = 'block';
 
     try {
+        const query = new URLSearchParams({
+            strTableName,
+            strTableVersion
+        });
         const data = await fetchJson(
-            '/view_results',
+            `/database/table?${query.toString()}`,
             {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    strTableName,
-                    strTableVersion
-                })
+                method: 'GET'
             },
             'Unable to load results.'
         );
 
-        rowCountDiv.innerText = `Row count: ${data.row_count}`;
-        displayTable(data.records, 'view-result-result');
+        rowCountDiv.innerText = `Row count: ${data.intRowCount}`;
+        displayTable(data.tblOutput, 'view-result-result');
     } catch (error) {
         console.error('View results error:', error);
         rowCountDiv.innerText = error.message || 'Unable to load results.';

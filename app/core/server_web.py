@@ -1,14 +1,14 @@
 # python -m app.core.server_web
+import os
+from pathlib import Path
+import pickle
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
-import pickle
-import os
-from pathlib import Path
 
-#from app.routes.api_database import router as database_router
-#from app.routes.api_inference import router as inference_router
+from app.routes.api_database import router as database_router
 from app.routes.api_modelling import router as training_router
 from app.routes.api_inference import router as scoring_router
 
@@ -19,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 WEBSITE_DIR = BASE_DIR / "website"
 STATIC_DIR = WEBSITE_DIR / "static"
 INDEX_PATH = WEBSITE_DIR / "index.html"
+MAX_LOAD_RETRY = 5
 
 
 @asynccontextmanager
@@ -28,9 +29,21 @@ async def lifespan(app: FastAPI):
     #######           Step 1: Load Database          #######
     #######                                          #######
     ########################################################
-    app.state.engine = objEngine # app.state.engine = adds this to fastapi
-    objBase.metadata.create_all(bind=objEngine)
-    print("✅ Database loaded")
+    boolLoadedDatabase = False
+    strReasonFailure = ""
+    for intRetry in range(0,MAX_LOAD_RETRY):
+        try:
+            app.state.engine = objEngine
+            objBase.metadata.create_all(bind=objEngine)
+            boolLoadedDatabase = True
+        except Exception as e:
+            strReasonFailure = e
+    if boolLoadedDatabase:
+        print("✅ Database loaded")
+    else:
+        print("❌ Database not loaded - killing itself")
+        print(strReasonFailure)
+        
 
     ########################################################
     #######                                          #######
@@ -76,7 +89,7 @@ def create_app() -> FastAPI:
 
     app.include_router(training_router)
     app.include_router(scoring_router)
-    #app.include_router(database_router)
+    app.include_router(database_router)
 
     return app
 

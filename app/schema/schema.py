@@ -1,6 +1,5 @@
 # schemas_response/modelling.py
-from datetime import date
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel
 
 
@@ -65,5 +64,16 @@ class DTO_Respond_RunScoring(BaseModel):
     dicStatus: dict # sample {500: 'Cant read file'}
     timeTaken: float
     dateCreated: str
+    tblOutput: list[dict[str, Any]]
+
+
+class DTO_Request_ViewTable(BaseModel):
+    strTableName: Literal["training", "scoring", "scored", "emails", "models"]
+    strTableVersion: Literal["latest", "historical"] = "latest"
+
+
+class DTO_Respond_ViewTable(BaseModel):
+    dicStatus: dict
+    intRowCount: int
     tblOutput: list[dict[str, Any]]
 
