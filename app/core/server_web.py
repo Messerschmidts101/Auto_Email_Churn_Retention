@@ -14,6 +14,8 @@ from app.routes.api_inference import router as scoring_router
 
 from app.db.database import objEngine, objBase
 
+import time
+
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 WEBSITE_DIR = BASE_DIR / "website"
@@ -37,6 +39,8 @@ async def lifespan(app: FastAPI):
             objBase.metadata.create_all(bind=objEngine)
             boolLoadedDatabase = True
         except Exception as e:
+            print(f"❌ Database not loaded at attempt {intRetry}")
+            time.sleep(30)
             strReasonFailure = e
     if boolLoadedDatabase:
         print("✅ Database loaded")

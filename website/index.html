@@ -11,13 +11,14 @@
         <div class="ambient-orb ambient-orb-right" aria-hidden="true"></div>
 
         <div class="app-shell">
-            <aside class="sidebar panel">
+            <aside class="sidebar">
                 <div class="brand-block">
                     <span class="eyebrow">Retention Studio</span>
                     <h1>Churn Ops Console</h1>
                     <p>
-                        Train the churn model, score fresh customers, and stage the
-                        retention workflow from one place.
+                        Model training, scoring, and stored outputs remain wired to the
+                        existing backend. Items without a backend contract stay clearly
+                        marked as placeholders.
                     </p>
                 </div>
 
@@ -28,7 +29,7 @@
                         data-section-target="train-section"
                         onclick="showSection('train-section')"
                     >
-                        01 Model Lab
+                        01: Model Lab
                     </button>
                     <button
                         type="button"
@@ -36,7 +37,7 @@
                         data-section-target="inference-section"
                         onclick="showSection('inference-section')"
                     >
-                        02 Scoring Run
+                        02: Scoring
                     </button>
                     <button
                         type="button"
@@ -44,7 +45,7 @@
                         data-section-target="results"
                         onclick="showSection('results')"
                     >
-                        03 Result Vault
+                        03: Data Vault
                     </button>
                 </nav>
 
@@ -72,9 +73,9 @@
                 <div class="sidebar-note">
                     <span class="eyebrow">Backend note</span>
                     <p>
-                        Training, scoring, and result browsing stay live. The email
-                        workspace is intentionally presented as a placeholder until
-                        the backend endpoints are rebuilt.
+                        The `Model Lab` workflow below follows the requested step layout.
+                        Optional model-family tuning and feature importance remain
+                        placeholder-only until the backend exposes them.
                     </p>
                 </div>
             </aside>
@@ -84,74 +85,52 @@
                     Interface ready. Upload a dataset to begin.
                 </div>
 
-                <header class="hero panel animate-rise">
-                    <div class="hero-copy">
-                        <span class="eyebrow">Operational Dashboard</span>
-                        <h2>Sharper workflow, same live backend surface.</h2>
-                        <p>
-                            The UI now treats the project like a real operations
-                            console: training and scoring remain fully wired to the
-                            current FastAPI routes, while the email lane is clearly
-                            marked as a future backend handoff instead of a dead
-                            button.
-                        </p>
-                        <div class="hero-actions">
-                            <button
-                                type="button"
-                                class="primary-button"
-                                onclick="showSection('train-section')"
-                            >
-                                Start Training
-                            </button>
-                            <button
-                                type="button"
-                                class="ghost-button"
-                                onclick="showSection('inference-section')"
-                            >
-                                Open Scoring
-                            </button>
-                            <button
-                                type="button"
-                                class="ghost-button"
-                                onclick="showSection('results')"
-                            >
-                                Browse Tables
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="summary-grid">
-                        <div class="summary-card">
-                            <span class="kicker">Live now</span>
-                            <strong>Model training</strong>
-                            <p>Upload CSVs, run training, and review metrics.</p>
-                        </div>
-                        <div class="summary-card">
-                            <span class="kicker">Live now</span>
-                            <strong>Customer scoring</strong>
-                            <p>Run inference and inspect churn outputs instantly.</p>
-                        </div>
-                        <div class="summary-card">
-                            <span class="kicker">Planned</span>
-                            <strong>Email delivery</strong>
-                            <p>Held in preview mode until the backend catches up.</p>
-                        </div>
-                    </div>
-                </header>
-
-                <section id="train-section" class="section animate-rise">
-                    <div class="section-header">
-                        <div>
-                            <span class="eyebrow">Stage 01</span>
-                            <h2>Model Lab</h2>
-                            <p>
-                                Load the training set, tune the run, and inspect model
-                                quality before moving to inference.
+                <section id="train-section" class="section">
+                    <header class="lab-nav panel">
+                        <div class="lab-nav-copy">
+                            <span class="eyebrow">Workflow</span>
+                            <h2 id="model-lab-title">
+                                Navigation Pane: Model Lab -> Load Training
+                            </h2>
+                            <p id="model-lab-subtitle">
+                                Upload the training CSV and inspect the dataset before
+                                running the current backend training pipeline.
                             </p>
                         </div>
-                    </div>
 
-                    <div class="workflow-grid">
+                        <div class="lab-stepper" aria-label="Model Lab steps">
+                            <button
+                                type="button"
+                                class="lab-step-button is-active"
+                                data-model-step-target="load"
+                                onclick="showModelLabStep('load')"
+                            >
+                                Step 1: Load Training
+                            </button>
+                            <span class="lab-step-arrow" aria-hidden="true"></span>
+                            <button
+                                type="button"
+                                class="lab-step-button"
+                                data-model-step-target="run"
+                                onclick="showModelLabStep('run')"
+                            >
+                                Step 2: Run Training
+                            </button>
+                            <span class="lab-step-arrow" aria-hidden="true"></span>
+                            <button
+                                type="button"
+                                class="lab-step-button"
+                                data-model-step-target="result"
+                                onclick="showModelLabStep('result')"
+                            >
+                                Step 3: View Result
+                            </button>
+                        </div>
+                    </header>
+
+                    <div id="model-lab-stage-root" class="model-lab-stage-root"></div>
+
+                    <div class="workflow-grid model-lab-source hidden">
                         <article class="step-card panel">
                             <span class="step-label">Step 1</span>
                             <h3>Load training data</h3>
@@ -282,7 +261,7 @@
                         </article>
                     </div>
 
-                    <div class="panel-grid">
+                    <div class="panel-grid model-lab-source hidden">
                         <article class="data-panel panel data-panel-wide">
                             <div class="panel-header">
                                 <div>
@@ -567,7 +546,7 @@
                     <div class="section-header">
                         <div>
                             <span class="eyebrow">Stage 03</span>
-                            <h2>Result Vault</h2>
+                            <h2>Data Vault</h2>
                             <p>
                                 Browse the latest or historical tables already exposed
                                 by the database API.

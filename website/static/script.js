@@ -21,12 +21,33 @@ const API_CONFIG = {
 
 const MAX_TABLE_RENDER_ROWS = 10000;
 const TABLE_VISIBLE_ROWS = 20;
+const MODEL_LAB_STEP_META = {
+    load: {
+        title: "Navigation Pane: Model Lab -> Load Training",
+        subtitle:
+            "Upload the training CSV and inspect the dataset before running the current backend training pipeline.",
+    },
+    run: {
+        title: "Navigation Pane: Model Lab -> Run Training",
+        subtitle:
+            "Use the live training route here. Optional model-family tuning tiles stay in placeholder mode until the backend exposes them.",
+    },
+    result: {
+        title: "Navigation Pane: Model Lab -> Training Result",
+        subtitle:
+            "Review the best available model snapshot and compare it against historical training runs stored in the database.",
+    },
+};
 
 const UI_STATE = {
     trainingRows: [],
     scoringRows: [],
     scoredRows: [],
     resultsRows: [],
+    modelLabStep: "load",
+    lastTrainingResponse: null,
+    modelHistoryRows: [],
+    modelHistoryLoaded: false,
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -34,12 +55,19 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initializeUi() {
+    buildModelLabWorkspace();
     showSection("train-section");
+    showModelLabStep("load");
     initializeFileInputs();
     initializeResultsFilters();
+    renderTrainingDatasetProfile([]);
+    renderTrainingResultPlaceholders();
     renderEmailPlaceholderState(
         "Run inference first, then preview how the future email lane will be staged."
     );
+    loadModelHistory().catch((error) => {
+        console.error("Model history preload error:", error);
+    });
     showAppNotice(
         "Training, scoring, and result browsing are live. Email actions remain placeholder-only until the backend is rebuilt.",
         "warning"
@@ -77,6 +105,183 @@ function initializeResultsFilters() {
     });
 }
 
+function buildModelLabWorkspace() {
+    const root = document.getElementById("model-lab-stage-root");
+    if (!root || root.dataset.ready === "true") {
+        return;
+    }
+
+    root.innerHTML = `
+        <div id="model-step-load" class="model-step-view">
+            <div class="model-grid-load">
+                <article class="panel stage-card stage-card-a">
+                    <div class="panel-header panel-header-stack">
+                        <div>
+                            <span class="stage-index">A.</span>
+                            <h3>Dataset Preview</h3>
+                            <p>The uploaded training dataset is rendered here exactly as returned by the backend upload route.</p>
+                        </div>
+                        <div class="panel-actions">
+                            <div id="model-lab-load-input-slot"></div>
+                            <button type="button" class="primary-button" onclick="uploadCSV('train')">Upload Training CSV</button>
+                        </div>
+                    </div>
+                    <div id="model-lab-load-status-slot" class="inline-stack"></div>
+                    <div id="model-lab-load-preview-slot"></div>
+                </article>
+                <article class="panel stage-card stage-card-c">
+                    <div class="panel-header">
+                        <div>
+                            <span class="stage-index">C.</span>
+                            <h3>Dataset Split &amp; Feature Summary</h3>
+                            <p>Dataset profiling appears after upload. Training split details appear after a model run.</p>
+                        </div>
+                    </div>
+                    <div id="train-dataset-summary" class="summary-stack"></div>
+                </article>
+                <article class="panel stage-card stage-card-b">
+                    <div class="panel-header">
+                        <div>
+                            <span class="stage-index">B.</span>
+                            <h3>Feature Preview</h3>
+                            <p>Frontend-generated field profile based on the uploaded training dataset.</p>
+                        </div>
+                    </div>
+                    <div id="train-feature-preview" class="table-shell table-shell-medium"></div>
+                </article>
+            </div>
+        </div>
+        <div id="model-step-run" class="model-step-view hidden">
+            <div class="tuning-grid">
+                <article class="panel tuning-card">
+                    <span class="placeholder-badge">Backend placeholder</span>
+                    <h3>Optional Step 1: Parameter Tuning</h3>
+                    <p class="tuning-title">Random Forest</p>
+                    <p>The current backend does not expose model-family selection or Random Forest hyperparameters yet.</p>
+                </article>
+                <article class="panel tuning-card">
+                    <span class="placeholder-badge">Backend placeholder</span>
+                    <h3>Optional Step 2: Parameter Tuning</h3>
+                    <p class="tuning-title">Logistic Regression</p>
+                    <p>This model option is represented in the UI, but there is no route for training or tuning it today.</p>
+                </article>
+                <article class="panel tuning-card">
+                    <span class="placeholder-badge">Backend placeholder</span>
+                    <h3>Optional Step 3: Parameter Tuning</h3>
+                    <p class="tuning-title">Linear Regression</p>
+                    <p>Kept as a placeholder panel until the backend exposes additional training pipelines.</p>
+                </article>
+            </div>
+            <article class="panel stage-card">
+                <div class="panel-header panel-header-stack">
+                    <div>
+                        <span class="stage-index">A.</span>
+                        <h3>Model Training Preview</h3>
+                        <p>This view runs the current training endpoint and stages the response in one operational panel.</p>
+                    </div>
+                    <div class="action-row">
+                        <button type="button" class="secondary-button" onclick="showModelLabStep('result')">Open Training Result</button>
+                    </div>
+                </div>
+                <div class="training-preview-layout">
+                    <div class="training-controls">
+                        <div class="info-banner">The current backend route runs one stored pipeline. The tuning tiles above remain placeholders until separate model routes exist.</div>
+                        <div id="model-lab-run-controls-slot" class="inline-stack"></div>
+                    </div>
+                    <div class="training-preview-panel">
+                        <div class="result-detail-panel">
+                            <h4>Run Snapshot</h4>
+                            <div id="model-lab-run-metrics-slot"></div>
+                        </div>
+                        <div class="result-detail-panel">
+                            <h4>Execution Notes</h4>
+                            <div class="placeholder-grid placeholder-grid-compact">
+                                <div class="placeholder-card">
+                                    <strong>Live backend route</strong>
+                                    <p>POST /train/model remains the source of truth for this panel.</p>
+                                </div>
+                                <div class="placeholder-card">
+                                    <strong>Planned later</strong>
+                                    <p>Multi-model comparisons and algorithm-specific tuning stay placeholder-only for now.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </div>
+        <div id="model-step-result" class="model-step-view hidden">
+            <div class="model-grid-result">
+                <article class="panel stage-card">
+                    <div class="panel-header panel-header-stack">
+                        <div>
+                            <span class="stage-index">A.</span>
+                            <h3>Best Model Preview</h3>
+                            <p>Best available model snapshot derived from the latest training response and the historical models table.</p>
+                        </div>
+                        <div id="model-lab-result-action-slot" class="action-row"></div>
+                    </div>
+                    <p id="best-model-runtime" class="meta-line">No trained model snapshot yet.</p>
+                    <div id="best-model-highlight-cards" class="summary-grid"></div>
+                    <div class="result-detail-grid">
+                        <div class="result-detail-panel">
+                            <h4>Dataset Split</h4>
+                            <div id="model-lab-result-split-slot"></div>
+                        </div>
+                        <div class="result-detail-panel">
+                            <h4>Model Metrics</h4>
+                            <div id="model-lab-result-metrics-slot"></div>
+                        </div>
+                        <div class="result-detail-panel">
+                            <h4>Confusion Matrix</h4>
+                            <div id="model-lab-result-confusion-slot"></div>
+                        </div>
+                        <div class="result-detail-panel">
+                            <h4>Feature Importance</h4>
+                            <div id="model-lab-result-feature-slot"></div>
+                        </div>
+                    </div>
+                </article>
+                <article class="panel stage-card">
+                    <div class="panel-header">
+                        <div>
+                            <span class="stage-index">B.</span>
+                            <h3>Other Models Preview</h3>
+                            <p>Historical models from the database appear here after at least two runs exist.</p>
+                        </div>
+                    </div>
+                    <div id="historical-models-preview" class="table-shell table-shell-large"></div>
+                </article>
+            </div>
+        </div>
+    `;
+
+    moveNodeToSlot(document.querySelector('label[for="train-file"]'), "model-lab-load-input-slot");
+    moveNodeToSlot(document.getElementById("train-file-name"), "model-lab-load-status-slot");
+    moveNodeToSlot(document.getElementById("train-upload-status"), "model-lab-load-status-slot");
+    moveNodeToSlot(document.getElementById("uploaded-train-preview"), "model-lab-load-preview-slot");
+    moveNodeToSlot(document.querySelector("#train-section .input-grid"), "model-lab-run-controls-slot");
+    moveNodeToSlot(document.querySelector("#train-section .workflow-grid .step-card:nth-of-type(2) .action-row"), "model-lab-run-controls-slot");
+    moveNodeToSlot(document.getElementById("time-details"), "model-lab-run-controls-slot");
+    moveNodeToSlot(document.getElementById("progress-bar-container-train"), "model-lab-run-controls-slot");
+    moveNodeToSlot(document.getElementById("training-metric-cards"), "model-lab-run-metrics-slot");
+    moveNodeToSlot(document.getElementById("btn-proceed-inference"), "model-lab-result-action-slot");
+    moveNodeToSlot(document.getElementById("training-details-preview"), "model-lab-result-split-slot");
+    moveNodeToSlot(document.getElementById("metrics-details-preview"), "model-lab-result-metrics-slot");
+    moveNodeToSlot(document.getElementById("confusion-metrix-details-preview"), "model-lab-result-confusion-slot");
+    moveNodeToSlot(document.getElementById("feature-importance-preview"), "model-lab-result-feature-slot");
+
+    root.dataset.ready = "true";
+}
+
+function moveNodeToSlot(node, slotId) {
+    const slot = document.getElementById(slotId);
+    if (!node || !slot) {
+        return;
+    }
+    slot.appendChild(node);
+}
+
 function showSection(sectionId) {
     document.querySelectorAll(".section").forEach((section) => {
         section.classList.add("hidden");
@@ -84,10 +289,47 @@ function showSection(sectionId) {
 
     document.getElementById(sectionId)?.classList.remove("hidden");
 
+    if (sectionId === "train-section") {
+        showModelLabStep(UI_STATE.modelLabStep || "load");
+    }
+
     document.querySelectorAll(".nav-button").forEach((button) => {
         const isActive = button.dataset.sectionTarget === sectionId;
         button.classList.toggle("is-active", isActive);
     });
+}
+
+function showModelLabStep(stepId) {
+    UI_STATE.modelLabStep = MODEL_LAB_STEP_META[stepId] ? stepId : "load";
+
+    document.querySelectorAll("#model-lab-stage-root .model-step-view").forEach((view) => {
+        view.classList.add("hidden");
+    });
+    document.getElementById(`model-step-${UI_STATE.modelLabStep}`)?.classList.remove("hidden");
+
+    document.querySelectorAll(".lab-step-button").forEach((button) => {
+        button.classList.toggle(
+            "is-active",
+            button.dataset.modelStepTarget === UI_STATE.modelLabStep
+        );
+    });
+
+    const meta = MODEL_LAB_STEP_META[UI_STATE.modelLabStep];
+    const title = document.getElementById("model-lab-title");
+    const subtitle = document.getElementById("model-lab-subtitle");
+
+    if (title) {
+        title.textContent = meta.title;
+    }
+    if (subtitle) {
+        subtitle.textContent = meta.subtitle;
+    }
+
+    if (UI_STATE.modelLabStep === "result") {
+        loadModelHistory().catch((error) => {
+            console.error("Model history load error:", error);
+        });
+    }
 }
 
 function normalizeTableData(data) {
@@ -275,6 +517,8 @@ async function uploadCSV(type) {
         const rows = normalizeTableData(data.tblOutput);
         if (type === "train") {
             UI_STATE.trainingRows = rows;
+            UI_STATE.lastTrainingResponse = null;
+            renderTrainingDatasetProfile(rows);
         } else if (type === "score") {
             UI_STATE.scoringRows = rows;
         }
@@ -286,6 +530,9 @@ async function uploadCSV(type) {
             "success"
         );
         setStageStatus(config.stageStatusId, "Dataset ready", "success");
+        if (type === "train") {
+            showModelLabStep("load");
+        }
         showAppNotice(
             `${capitalize(config.uploadLabel)} dataset uploaded successfully.`,
             "success"
@@ -320,7 +567,6 @@ async function trainModel() {
         "progress-label-train"
     );
     const timeDetails = document.getElementById("time-details");
-    const featureImportanceSection = document.getElementById("feature-importance-section");
     const featureImportancePreview = document.getElementById("feature-importance-preview");
 
     showAppNotice("Training model with the current backend route...", "neutral");
@@ -339,6 +585,7 @@ async function trainModel() {
         );
 
         stopProgress(progress, true);
+        UI_STATE.lastTrainingResponse = data;
 
         renderKeyValueCards(data.objMetrics, "training-metric-cards");
         renderMetricGrid(
@@ -358,18 +605,19 @@ async function trainModel() {
             "Training completed.";
 
         if (Array.isArray(data.tblFeatureImportance) && data.tblFeatureImportance.length > 0) {
-            featureImportanceSection.classList.remove("hidden");
             displayTable(
                 data.tblFeatureImportance,
                 "feature-importance-preview",
                 "No feature importance output available."
             );
-        } else if (featureImportanceSection && featureImportancePreview) {
-            featureImportanceSection.classList.add("hidden");
+        } else if (featureImportancePreview) {
             featureImportancePreview.innerHTML =
-                '<p class="empty-state">No feature importance output available.</p>';
+                '<p class="empty-state">The current backend training response does not provide feature importance yet.</p>';
         }
 
+        renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
+        renderLatestTrainingResultSummary(data);
+        await loadModelHistory(true);
         setButtonEnabled("btn-proceed-inference", true);
         setStatusMessage(
             "train-upload-status",
@@ -378,8 +626,9 @@ async function trainModel() {
         );
         setStageStatus("stage-train-status", "Model trained", "success");
         setStageStatus("stage-score-status", "Ready for scoring", "neutral");
+        showModelLabStep("result");
         showAppNotice(
-            "Training finished. Review the metrics, then move to scoring.",
+            "Training finished. Review the result pane, then move to scoring.",
             "success"
         );
     } catch (error) {
@@ -392,6 +641,389 @@ async function trainModel() {
         );
         showAppNotice(error.message || "Model training failed.", "danger");
     }
+}
+
+function renderTrainingDatasetProfile(rows, datasetSplit = null) {
+    const records = normalizeTableData(rows);
+    const profile = buildDatasetProfile(records);
+    const summaryContainer = document.getElementById("train-dataset-summary");
+
+    if (!summaryContainer) {
+        return;
+    }
+
+    summaryContainer.innerHTML = "";
+
+    if (!profile) {
+        summaryContainer.appendChild(
+            buildSummaryCard(
+                "Waiting",
+                "No dataset yet",
+                "Upload a training CSV to build the summary pane."
+            )
+        );
+        renderTrainingFeatureTable([]);
+        return;
+    }
+
+    renderTrainingFeatureTable(profile.fields);
+
+    summaryContainer.appendChild(
+        buildSummaryCard("Rows loaded", profile.rowCount.toLocaleString(), "Records currently staged for training.")
+    );
+    summaryContainer.appendChild(
+        buildSummaryCard("Fields", profile.fieldCount.toLocaleString(), "Columns detected from the uploaded dataset.")
+    );
+    summaryContainer.appendChild(
+        buildSummaryCard("Numeric fields", profile.numericCount.toLocaleString(), "Detected from non-empty column values.")
+    );
+    summaryContainer.appendChild(
+        buildSummaryCard("Categorical fields", profile.categoricalCount.toLocaleString(), "Columns treated as discrete values.")
+    );
+    summaryContainer.appendChild(
+        buildSummaryCard(
+            "Target column",
+            profile.targetIncluded ? "Exited" : "Missing",
+            profile.targetIncluded
+                ? "The expected churn label is available in the uploaded training set."
+                : "The expected churn label was not found in the uploaded training set."
+        )
+    );
+
+    if (datasetSplit) {
+        const splitRow = normalizeTableData(datasetSplit)[0] || {};
+        const trainTotal =
+            (Number(splitRow.intNegativeTraining) || 0) +
+            (Number(splitRow.intPositiveTraining) || 0);
+        const testTotal =
+            (Number(splitRow.intNegativeTesting) || 0) +
+            (Number(splitRow.intPositiveTesting) || 0);
+
+        summaryContainer.appendChild(
+            buildSummaryCard(
+                "Dataset split",
+                `${trainTotal.toLocaleString()} / ${testTotal.toLocaleString()}`,
+                `Train positives ${Number(splitRow.intPositiveTraining || 0).toLocaleString()} and test positives ${Number(splitRow.intPositiveTesting || 0).toLocaleString()}.`
+            )
+        );
+    } else {
+        summaryContainer.appendChild(
+            buildSummaryCard(
+                "Dataset split",
+                "Pending training",
+                "Run the training step to populate the backend train/test split summary."
+            )
+        );
+    }
+}
+
+function renderTrainingFeatureTable(fields) {
+    const rows = normalizeTableData(fields);
+    if (!rows.length) {
+        const container = document.getElementById("train-feature-preview");
+        if (container) {
+            container.innerHTML =
+                '<p class="empty-state">Upload a training CSV to inspect its columns and fill rates.</p>';
+        }
+        return;
+    }
+
+    displayTable(rows, "train-feature-preview", "No field profile available.");
+}
+
+function buildDatasetProfile(rows) {
+    const records = normalizeTableData(rows);
+    if (!records.length) {
+        return null;
+    }
+
+    const columns = Object.keys(records[0]);
+    const fieldRows = columns.map((columnName) => {
+        const values = records
+            .map((row) => row[columnName])
+            .filter((value) => value !== null && value !== undefined && value !== "");
+        const sample = values.length ? values[0] : null;
+        const uniqueCount = new Set(values.map((value) => String(value))).size;
+        const filledPercent = Math.round((values.length / records.length) * 100);
+        const columnType = detectColumnType(values);
+
+        return {
+            Field: humanizeLabel(columnName),
+            Role: columnName === "Exited" ? "Target" : "Feature",
+            Type: columnType,
+            Filled: `${filledPercent}%`,
+            UniqueValues: uniqueCount.toLocaleString(),
+            Sample: formatTableValue(sample),
+        };
+    });
+
+    const numericCount = fieldRows.filter((row) => row.Type !== "Categorical").length;
+
+    return {
+        rowCount: records.length,
+        fieldCount: columns.length,
+        numericCount,
+        categoricalCount: columns.length - numericCount,
+        targetIncluded: columns.includes("Exited"),
+        fields: fieldRows,
+    };
+}
+
+function detectColumnType(values) {
+    if (!values.length) {
+        return "Unknown";
+    }
+
+    const numericValues = values.filter((value) => isFiniteNumberish(value)).length;
+    if (numericValues === values.length) {
+        return "Numeric";
+    }
+    if (numericValues / values.length >= 0.85) {
+        return "Mostly numeric";
+    }
+    return "Categorical";
+}
+
+function isFiniteNumberish(value) {
+    if (typeof value === "number") {
+        return Number.isFinite(value);
+    }
+    if (typeof value !== "string" || value.trim() === "") {
+        return false;
+    }
+    return !Number.isNaN(Number(value));
+}
+
+function renderTrainingResultPlaceholders() {
+    renderTrainingFeatureTable([]);
+    renderTrainingDatasetProfile([], null);
+    renderBestModelPlaceholder(
+        "Run training or load historical model data to populate this view."
+    );
+    renderHistoricalModelsPlaceholder(
+        "No additional historical models are available yet."
+    );
+}
+
+function renderLatestTrainingResultSummary(data) {
+    const container = document.getElementById("best-model-highlight-cards");
+    const runtime = document.getElementById("best-model-runtime");
+    if (!container || !runtime) {
+        return;
+    }
+
+    container.innerHTML = "";
+    runtime.textContent =
+        buildMetadataLine(data.timeTaken, data.dateCreated) ||
+        "Training completed.";
+
+    const metrics = normalizeTableData(data.objMetrics)[0] || {};
+    container.appendChild(
+        buildSummaryCard("Source", "Latest run", "Directly returned by the training endpoint.")
+    );
+    container.appendChild(
+        buildSummaryCard("F1", formatSummaryValue("fltF1", metrics.fltF1), "Primary score from the latest run.")
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Accuracy",
+            formatSummaryValue("fltAccuracy", metrics.fltAccuracy),
+            "Overall accuracy from the latest run."
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Precision / Recall",
+            `${formatSummaryValue("fltPrecision", metrics.fltPrecision)} / ${formatSummaryValue("fltRecall", metrics.fltRecall)}`,
+            "Latest balance between positive precision and recall."
+        )
+    );
+}
+
+async function loadModelHistory(force = false) {
+    if (UI_STATE.modelHistoryLoaded && !force) {
+        renderHistoricalTrainingResults(UI_STATE.modelHistoryRows);
+        return UI_STATE.modelHistoryRows;
+    }
+
+    try {
+        const query = new URLSearchParams({
+            strTableName: "models",
+            strTableVersion: "historical",
+        });
+        const data = await fetchJson(
+            `/database/table?${query.toString()}`,
+            { method: "GET" },
+            "Unable to load historical models."
+        );
+
+        UI_STATE.modelHistoryRows = normalizeTableData(data.tblOutput);
+        UI_STATE.modelHistoryLoaded = true;
+        renderHistoricalTrainingResults(UI_STATE.modelHistoryRows);
+        return UI_STATE.modelHistoryRows;
+    } catch (error) {
+        UI_STATE.modelHistoryRows = [];
+        UI_STATE.modelHistoryLoaded = true;
+        renderHistoricalModelsPlaceholder(
+            "Historical model data is unavailable until the backend stores at least one run."
+        );
+        if (!UI_STATE.lastTrainingResponse) {
+            renderBestModelPlaceholder(
+                "Run training or load historical model data to populate this view."
+            );
+        }
+        throw error;
+    }
+}
+
+function renderHistoricalTrainingResults(rows) {
+    const records = normalizeTableData(rows);
+
+    if (!records.length) {
+        if (!UI_STATE.lastTrainingResponse) {
+            renderBestModelPlaceholder(
+                "Run training or load historical model data to populate this view."
+            );
+        }
+        renderHistoricalModelsPlaceholder(
+            "No additional historical models are available yet."
+        );
+        return;
+    }
+
+    const bestRecord = selectBestModelRecord(records);
+    if (bestRecord) {
+        renderBestModelFromHistory(bestRecord, records.length);
+    }
+
+    const otherModels = records.filter((row) => row.meta_Id !== bestRecord?.meta_Id);
+    if (otherModels.length) {
+        displayTable(
+            otherModels,
+            "historical-models-preview",
+            "No additional historical models are available yet."
+        );
+    } else {
+        renderHistoricalModelsPlaceholder(
+            "Only one stored model run exists so far. Additional runs will appear here."
+        );
+    }
+
+    setButtonEnabled("btn-proceed-inference", true);
+}
+
+function selectBestModelRecord(rows) {
+    return [...normalizeTableData(rows)].sort((left, right) => {
+        const f1Delta = (Number(right.F1) || 0) - (Number(left.F1) || 0);
+        if (f1Delta !== 0) {
+            return f1Delta;
+        }
+
+        const accuracyDelta =
+            (Number(right.Accuracy) || 0) - (Number(left.Accuracy) || 0);
+        if (accuracyDelta !== 0) {
+            return accuracyDelta;
+        }
+
+        return new Date(right.meta_DateCreated || 0) - new Date(left.meta_DateCreated || 0);
+    })[0];
+}
+
+function renderBestModelFromHistory(row, totalRuns) {
+    const container = document.getElementById("best-model-highlight-cards");
+    const runtime = document.getElementById("best-model-runtime");
+    if (!container || !runtime) {
+        return;
+    }
+
+    runtime.textContent = `Selected from ${totalRuns.toLocaleString()} historical model run(s). Logged ${formatDateTime(row.meta_DateCreated)}.`;
+    container.innerHTML = "";
+    container.appendChild(
+        buildSummaryCard("Source", "Historical best", "Selected by highest F1, then accuracy.")
+    );
+    container.appendChild(
+        buildSummaryCard("F1", formatSummaryValue("F1", row.F1), "Best F1 score in the stored model history.")
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Accuracy",
+            formatSummaryValue("Accuracy", row.Accuracy),
+            "Accuracy recorded for the selected model run."
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Precision / Recall",
+            `${formatSummaryValue("Precision", row.Precision)} / ${formatSummaryValue("Recall", row.Recall)}`,
+            "Stored precision and recall for the selected run."
+        )
+    );
+
+    renderMetricGrid(
+        [
+            {
+                TrainingNegative: row.CountTrainingNegativeClass,
+                TrainingPositive: row.CountTrainingPositiveClass,
+                TestingNegative: row.CountTestNegativeClass,
+                TestingPositive: row.CountTestPositiveClass,
+            },
+        ],
+        "training-details-preview",
+        "No dataset split available."
+    );
+    renderMetricGrid(
+        [
+            {
+                Accuracy: row.Accuracy,
+                Precision: row.Precision,
+                Recall: row.Recall,
+                F1: row.F1,
+            },
+        ],
+        "metrics-details-preview",
+        "No model metrics available."
+    );
+    renderMetricGrid(
+        [
+            {
+                TrueNegative: row.CountTrueNegative,
+                FalsePositive: row.CountFalsePositive,
+                FalseNegative: row.CountFalseNegative,
+                TruePositive: row.CountTruePositive,
+            },
+        ],
+        "confusion-metrix-details-preview",
+        "No confusion matrix available."
+    );
+
+    if (!UI_STATE.lastTrainingResponse?.tblFeatureImportance?.length) {
+        const featureContainer = document.getElementById("feature-importance-preview");
+        if (featureContainer) {
+            featureContainer.innerHTML =
+                '<p class="empty-state">The backend does not store feature importance in the historical models table yet.</p>';
+        }
+    }
+}
+
+function renderBestModelPlaceholder(message) {
+    const container = document.getElementById("best-model-highlight-cards");
+    const runtime = document.getElementById("best-model-runtime");
+    if (container) {
+        container.innerHTML = "";
+        container.appendChild(buildSummaryCard("Best model", "Pending run", message));
+    }
+    if (runtime) {
+        runtime.textContent = "No trained model snapshot yet.";
+    }
+}
+
+function renderHistoricalModelsPlaceholder(message) {
+    const container = document.getElementById("historical-models-preview");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = `<p class="empty-state">${escapeHtml(message)}</p>`;
 }
 
 async function inferenceModel() {
@@ -986,7 +1618,7 @@ function formatSummaryValue(key, value) {
     }
 
     if (value === null || value === undefined || value === "") {
-        return "—";
+        return "N/A";
     }
 
     return String(value);
@@ -994,7 +1626,7 @@ function formatSummaryValue(key, value) {
 
 function formatTableValue(value) {
     if (value === null || value === undefined || value === "") {
-        return "—";
+        return "N/A";
     }
 
     if (typeof value === "boolean") {
