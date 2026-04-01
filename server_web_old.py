@@ -38,10 +38,10 @@ import uuid
 utils_path = os.path.join(os.getcwd(), 'model')
 if utils_path not in sys.path:
     sys.path.append(utils_path)
-from server_database import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
+from app.db.schema import db, Latest_Training, Latest_Scoring, Latest_Scored, Latest_Emails, Historical_Models, Historical_Training, Historical_Scoring, Historical_Scored, Historical_Emails
 import ChurnPredictionModel
 import utils_server
-import server_web_config
+import app.config as config
 
 ########################################################
 #######                                          #######
@@ -69,7 +69,7 @@ objLLM = utils_server.create_llm()
 # Add Model To Server
 try:
     pass
-    objGlobalModellingClass = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal))
+    objGlobalModellingClass = joblib.load(os.path.join(config.strPathStorageML, config.strNameMLFinal))
 except:
     objGlobalModellingClass = None
     pass
@@ -86,7 +86,7 @@ def upload_train():
     objFile = request.files['file']
     tblLatestTraining = pd.read_csv(objFile)
     tblLatestTraining.to_csv(
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
+        os.path.join(config.strPathStorageML, config.strNameCSVTrain),
         index=False
     )
     # Step 2: Overwrite on database latest table
@@ -104,7 +104,7 @@ def upload_scoring():
     objFile = request.files['file']
     tblLatestScoring = pd.read_csv(objFile)
     tblLatestScoring.to_csv(
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring),
+        os.path.join(config.strPathStorageML, config.strNameCSVScoring),
         index=False
     )
     # Step 2: Overwrite on database latest table
@@ -130,14 +130,14 @@ def train_model():
 
     global objGlobalModellingClass
     objModellingClass = ChurnPredictionModel.ChurnPredictionModel(
-        strPathTrainDataset = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVTrain),
-        strPathToSaveModels = server_web_config.strPathStorageML
+        strPathTrainDataset = os.path.join(config.strPathStorageML, config.strNameCSVTrain),
+        strPathToSaveModels = config.strPathStorageML
     )
     timeStart = time.time()
     objModellingClass.run_training(boolVerbose = False)
     joblib.dump(
         objModellingClass, 
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)
+        os.path.join(config.strPathStorageML, config.strNameMLFinal)
     ) 
     objGlobalModellingClass = objModellingClass # update available model to server side
 
@@ -215,7 +215,7 @@ def get_prediction():
     objPipeline = objGlobalModellingClass
     # Load the saved model object if no model is trained during session or SHAP path is missing
     if not objPipeline:
-        objPipeline = joblib.load(os.path.join(server_web_config.strPathStorageML, server_web_config.strNameMLFinal)) 
+        objPipeline = joblib.load(os.path.join(config.strPathStorageML, config.strNameMLFinal)) 
     
     ########################################################
     #######                                          #######
@@ -223,7 +223,7 @@ def get_prediction():
     #######                                          #######
     ########################################################
     timeStart = time.time()
-    tblLatestScored = objPipeline.get_predictions(strPathScoring = os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVScoring))
+    tblLatestScored = objPipeline.get_predictions(strPathScoring = os.path.join(config.strPathStorageML, config.strNameCSVScoring))
 
     ########################################################
     #######                                          #######
@@ -311,7 +311,6 @@ def create_emails():
     
     return jsonify(Latest_Emails.to_json())
 
-
 # complete
 @app.route('/send_emails')
 def send_emails():    
@@ -321,7 +320,7 @@ def send_emails():
     #######                                          #######
     ########################################################
     tblEmails = pd.read_csv(
-        os.path.join(server_web_config.strPathStorageML, server_web_config.strNameCSVEmails)
+        os.path.join(config.strPathStorageML, config.strNameCSVEmails)
     ) 
 
     ########################################################
@@ -331,16 +330,16 @@ def send_emails():
     ########################################################
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(
-            server_web_config.strEmailUser, 
-            server_web_config.strEmailPass
+            config.strEmailUser, 
+            config.strEmailPass
         )
         for intIndex, rowRow in tblEmails.iterrows():
             if (intIndex%100 == 0) and (intIndex!=0):
                 print('[[send_emails()]] Email sending limit reached. Sleeping for 5 minutes...')
                 time.sleep(300) 
             msg = MIMEText(rowRow['LLM_Response'])
-            msg['Subject'] = server_web_config.strEmailSubject
-            msg['From'] = server_web_config.strEmailFrom
+            msg['Subject'] = config.strEmailSubject
+            msg['From'] = config.strEmailFrom
             msg['To'] = rowRow['Email']
             server.send_message(msg)
             print('===== check this email sending: =====')

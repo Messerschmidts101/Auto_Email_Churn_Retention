@@ -2,7 +2,7 @@
 import string
 import random
 import llm.GenAIModel as GenAIModel
-import server_web_config
+import app.config as config
 
 
 # complete
@@ -18,16 +18,16 @@ def create_llm() -> GenAIModel:
     1. Returns our proprietary LLM object.
     """
     # Step 1: Get Persona
-    with open(server_web_config.strPathPersonaLLM, "r", encoding="utf-8") as file:
+    with open(config.strPathPersonaLLM, "r", encoding="utf-8") as file:
         strTemplateContextResponse = file.read()
     # Step 2: Create LLM
     objLLM = GenAIModel.LLM_Email(intLLMProvider = 1, 
-        strIngestPath = server_web_config.strPathStorageLLM,
+        strIngestPath = config.strPathStorageLLM,
         strPromptTemplate = strTemplateContextResponse, 
-        strAPIKey = server_web_config.strAPILLM, 
-        fltTemperature = server_web_config.fltTemperature, 
-        intRetrieverK = server_web_config.intRetrieverK,
-        intLLMAccessory = server_web_config.intLLMAccessory,
+        strAPIKey = config.strAPILLM, 
+        fltTemperature = config.fltTemperature, 
+        intRetrieverK = config.intRetrieverK,
+        intLLMAccessory = config.intLLMAccessory,
     )
     # Step 3: Return LLM
     return objLLM
