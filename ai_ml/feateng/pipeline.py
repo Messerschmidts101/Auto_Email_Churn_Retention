@@ -6,6 +6,8 @@ from sklearn.pipeline import Pipeline
 
 from ai_ml.feateng import transformers as t
 
+import os
+
 
 ROW_NUMBER_COL = "Das_Row_Number"
 AGE_TENURE_RATIO_COL = "Age_Tenure_Ratio"
@@ -156,3 +158,44 @@ __all__ = [
     "build_feature_pipeline",
     "build_model_pipeline",
 ]
+
+def main(
+        strPathTrainDataset = os.path.join('documents','train.csv'),
+    ):
+    #from ai_ml.feateng.pipeline import build_model_pipeline
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+    tblRaw = pd.read_csv(
+                strPathTrainDataset
+            ).drop(
+                'CustomerId', 
+                axis='columns'
+            )
+    X,y = tblRaw[[strColName for strColName in tblRaw.columns if strColName != 'Exited']], tblRaw['Exited']
+    X_train, X_test, y_train, y_test = train_test_split(
+                X, 
+                y, 
+                test_size=0.2, 
+                random_state=42
+            )
+
+    print(X_train.head(20))
+    print(y_train.head(20))
+    print(X_test.head(20))
+    feature_columns = X_train.columns.tolist()  # raw feature columns only
+    objBasePipeline = build_model_pipeline(
+        feature_columns=feature_columns,
+        dicOrderParams = {
+            'Surname':"asc",
+            'CreditScore':"asc"
+        },
+        boolVerbose=True,
+    )
+
+    objBasePipeline.fit(X_train, y_train)
+    y_pred = objBasePipeline.predict(X_test)
+
+
+if __name__ == "__main__":
+    # python -m ai_ml.feateng.pipeline
+    main()

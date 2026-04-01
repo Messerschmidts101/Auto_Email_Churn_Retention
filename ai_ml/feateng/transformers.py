@@ -41,15 +41,14 @@ class Order_Transformer(BaseEstimator, TransformerMixin):
             )
         return self
     def transform(self, X:DataFrame):
+        X = X.copy()
+        # Capture original load order before any temporary sorting.
+        X['Das_Row_Number'] = np.arange(len(X))
         if self.dicOrderParams:
             X = X.sort_values(
                 by = list(self.dicOrderParams.keys()),
                 ascending = list(self.dicOrderParams.values())
             ).copy()
-            X['Das_Row_Number'] = np.arange(len(X))
-        else:
-            X = X.copy()
-            X['Das_Row_Number'] = np.arange(len(X)) # we need a distinct column name for row number, as using generic ones might destroy an existing one.
         return X.sort_values(
             by = 'Das_Row_Number',
             ascending = True
