@@ -1,10 +1,5 @@
-from collections.abc import Sequence
-
-from sklearn.base import BaseEstimator
 from sklearn.pipeline import Pipeline
-
 from ai_ml.feateng import transformers as t
-
 import os
 
 def build_pipeline_feature(
@@ -113,6 +108,7 @@ def main(
     )
 
     objBasePipeline.fit(X_train, y_train)
+    objBasePipeline.transform(X_train)
     #y_pred = objBasePipeline.predict(X_test)
 
 

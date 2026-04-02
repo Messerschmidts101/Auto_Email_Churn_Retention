@@ -11,7 +11,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 
-
 ########################################################
 #######                                          #######
 #######            Step 1: select_col            #######
@@ -84,12 +83,12 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
     def transform(self, X:DataFrame):
         X = X.copy()
 
-        if self.lisstrColNames == None:
+        if self.lisstrColNames is None:
             lisstrColNames = X.columns
         else:
             lisstrColNames = self.lisstrColNames
 
-        if self.lisstrColNamesExclude == None:
+        if self.lisstrColNamesExclude is None:
             lisstrColNamesExclude = []
         else:
             lisstrColNamesExclude = self.lisstrColNamesExclude
@@ -105,10 +104,7 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 2 Disguised_Nulls_Transformer()')
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        )
+        return X
     
 ########################################################
 #######                                          #######
@@ -143,15 +139,15 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
         if self.lisstrColNames == []:
             self.lisstrColNames = None
 
+        if self.lisstrColNames is None:
+            self.lisstrColNames = X.columns
+
         if self.dicCoerce == {}:
             self.dicCoerce = None
 
         return self
 
     def transform(self, X:DataFrame):
-        if self.lisstrColNames == None:
-            self.lisstrColNames = X.columns
-
         X = X.copy()
         lisstrColNamesExcludeLocal = self.lisstrColNamesExclude
         if not lisstrColNamesExcludeLocal:
@@ -174,10 +170,7 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 3 coerce_col_type()')
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        )
+        return X
 
 ########################################################
 #######                                          #######
@@ -200,7 +193,7 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
             self.lisstrColNames = X.columns
 
         
-        if self.lisstrColNamesExclude == None:
+        if self.lisstrColNamesExclude is None:
             lisstrColNamesExclude = []
 
         X = X.copy()
@@ -219,7 +212,7 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
     
     def transform(self, X:DataFrame):
         X = X.copy()
-        if self.lisstrColNamesExclude == None:
+        if self.lisstrColNamesExclude is None:
             lisstrColNamesExclude = []
 
         # Step 1: Force None if NaN
@@ -236,10 +229,7 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
             print('finished step 4 Imputer_Transformer()')
             print(self.dicImpute)
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        )
+        return X
 
 ########################################################
 #######                                          #######
@@ -348,10 +338,7 @@ class Age_Tenure_Ratio(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 6 Age_Tenure_Ratio()')
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        )
+        return X
     
 ########################################################
 #######                                          #######
@@ -378,10 +365,7 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 7 Balance_Salary_Ratio()')
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        )
+        return X
     
 ########################################################
 #######                                          #######
@@ -390,7 +374,7 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
 ########################################################
 class Select_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, lisstrColNames:list[str], boolVerbose:bool = False):
-        self.lisstrColNames = lisstrColNames
+        self.lisstrColNames = lisstrColNames + ['Das_Row_Number']
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
@@ -401,10 +385,7 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
         if self.boolVerbose:
             print('finished step 8 select_col()')
             print(X.head(20))
-        return X.sort_values(
-            by = 'Das_Row_Number',
-            ascending = True
-        ).drop(
+        return X.drop(
             'Das_Row_Number',
             axis=1
         )
