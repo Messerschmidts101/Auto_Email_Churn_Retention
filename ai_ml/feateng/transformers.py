@@ -118,8 +118,8 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
 class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, lisstrColNames:list[str] = None, 
                  boolVerbose:bool = False,
-                 lisstrColNamesExclude:list[str]=[], 
-                 dicCoerce:dict={}):
+                 lisstrColNamesExclude:list[str]=None, 
+                 dicCoerce:dict=None):
         """
         # Input
         1. lisstrColNames : list of str. List of column names to attempt type coercion on.
@@ -142,6 +142,10 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         if self.lisstrColNames == []:
             self.lisstrColNames = None
+
+        if self.dicCoerce == {}:
+            self.dicCoerce = None
+
         return self
 
     def transform(self, X:DataFrame):
@@ -150,7 +154,9 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
 
         X = X.copy()
         lisstrColNamesExcludeLocal = self.lisstrColNamesExclude
-        if not self.dicCoerce == {}:
+        if not lisstrColNamesExcludeLocal:
+            lisstrColNamesExcludeLocal = [] 
+        if self.dicCoerce != None:
             lisstrColNamesExcludeLocal.extend([strColName for strColName in self.dicCoerce.keys()])
 
         # Step 1: Attempt to make everything numerical
@@ -161,8 +167,9 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
                     errors='ignore'
                 )
         # Step 2: Apply user-defined coercion
-        for strColName, strDataType in self.dicCoerce.items():
-            X[strColName] = X[strColName].astype(strDataType)
+        if self.dicCoerce:
+            for strColName, strDataType in self.dicCoerce.items():
+                X[strColName] = X[strColName].astype(strDataType)
         
         if self.boolVerbose:
             print('finished step 3 coerce_col_type()')
@@ -181,7 +188,7 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, 
                  lisstrColNames:list[str] = None, 
                  boolVerbose:bool = False, 
-                 lisstrColNamesExclude:list[str]=[]):
+                 lisstrColNamesExclude:list[str]=None):
         self.lisstrColNames = lisstrColNames
         self.dicImpute = {}
         self.boolVerbose = boolVerbose
@@ -192,9 +199,13 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
         if self.lisstrColNames == [] or self.lisstrColNames == None:
             self.lisstrColNames = X.columns
 
+        
+        if self.lisstrColNamesExclude == None:
+            lisstrColNamesExclude = []
+
         X = X.copy()
         for strColName in self.lisstrColNames:
-            if strColName not in self.lisstrColNamesExclude:
+            if strColName not in lisstrColNamesExclude:
                 # Step 1: Get Mode
                 if is_string_dtype(X[strColName]) or is_bool_dtype(X[strColName]):
                     anyImputeValue = X[strColName].mode(dropna=True)
@@ -208,10 +219,12 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
     
     def transform(self, X:DataFrame):
         X = X.copy()
+        if self.lisstrColNamesExclude == None:
+            lisstrColNamesExclude = []
 
         # Step 1: Force None if NaN
         for strColName in self.lisstrColNames:
-            if strColName not in self.lisstrColNamesExclude:
+            if strColName not in lisstrColNamesExclude:
                 X[strColName] = X[strColName].apply(
                     lambda cell_value: None if pd.isna(cell_value)
                     else cell_value
