@@ -1,15 +1,21 @@
-import os
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 import numpy as np
-import shap
-import time
-from pandas import DataFrame, Series
+from pandas import DataFrame
 from pandas.api.types import is_numeric_dtype, is_string_dtype, is_bool_dtype
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.utils.validation import check_is_fitted
+
+
+def _resolve_columns(X: DataFrame, lisstrColNames: list[str] = None) -> list[str]:
+    if lisstrColNames is None or lisstrColNames == []:
+        return list(X.columns)
+    return list(lisstrColNames)
+
+
+def _resolve_excluded_columns(lisstrColNamesExclude: list[str] = None) -> set[str]:
+    if lisstrColNamesExclude is None or lisstrColNamesExclude == []:
+        return set()
+    return set(lisstrColNamesExclude)
 
 ########################################################
 #######                                          #######
@@ -23,30 +29,33 @@ class Order_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, dicOrderParams:dict=None):
         self.dicOrderParams:dict = dicOrderParams
     def fit(self, X, y=None):
-        if self.dicOrderParams == {}:
-            self.dicOrderParams = None
-        elif self.dicOrderParams:
-            lisstrColNames = self.dicOrderParams.keys()
-            lisstrOrders = self.dicOrderParams.values()
+        dicOrderParams = self.dicOrderParams
+        if dicOrderParams == {}:
+            dicOrderParams = None
+        elif dicOrderParams:
+            lisstrColNames = dicOrderParams.keys()
+            lisstrOrders = dicOrderParams.values()
             lisstrOrders = [
                 True if strOrder.lower() == 'asc' or strOrder == True else False
                 for strOrder in lisstrOrders
             ]
-            self.dicOrderParams = dict(
+            dicOrderParams = dict(
                 zip(
                     lisstrColNames, 
                     lisstrOrders
                 )
             )
+        self.order_params_ = dicOrderParams
         return self
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["order_params_"])
         X = X.copy()
         # Capture original load order before any temporary sorting.
         X['Das_Row_Number'] = np.arange(len(X))
-        if self.dicOrderParams:
+        if self.order_params_:
             X = X.sort_values(
-                by = list(self.dicOrderParams.keys()),
-                ascending = list(self.dicOrderParams.values())
+                by = list(self.order_params_.keys()),
+                ascending = list(self.order_params_.values())
             ).copy()
         return X.sort_values(
             by = 'Das_Row_Number',
@@ -64,43 +73,29 @@ class Disguised_Nulls_Transformer(BaseEstimator, TransformerMixin):
     
     """
     def __init__(self, lisstrColNames:list[str] = None,
-                 lisstrDisguisedNulls:list[str] = ['_','',' '], 
+                 lisstrDisguisedNulls:list[str] = None, 
                  boolVerbose:bool = False, 
                  lisstrColNamesExclude:list[str] = None
                 ):
         self.lisstrColNames = lisstrColNames
-        self.lisstrDisguisedNulls = lisstrDisguisedNulls
+        self.lisstrDisguisedNulls = ['_','',' '] if lisstrDisguisedNulls is None else lisstrDisguisedNulls
         self.boolVerbose = boolVerbose
         self.lisstrColNamesExclude = lisstrColNamesExclude
 
     def fit(self, X, y=None):
-        if self.lisstrColNames == []:
-            self.lisstrColNames = None
-        if self.lisstrColNamesExclude == []:
-            self.lisstrColNamesExclude = None
+        self.columns_ = _resolve_columns(X, self.lisstrColNames)
+        self.excluded_columns_ = _resolve_excluded_columns(self.lisstrColNamesExclude)
+        self.disguised_nulls_ = tuple(self.lisstrDisguisedNulls)
         return self
     
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["columns_", "excluded_columns_", "disguised_nulls_"])
         X = X.copy()
 
-        if self.lisstrColNames is None:
-            lisstrColNames = X.columns
-        else:
-            lisstrColNames = self.lisstrColNames
-
-        if self.lisstrColNamesExclude is None:
-            lisstrColNamesExclude = []
-        else:
-            lisstrColNamesExclude = self.lisstrColNamesExclude
-
-        if self.lisstrDisguisedNulls:
-            for strColName in lisstrColNames:
-                if strColName not in lisstrColNamesExclude:
-                    X[strColName] = X[strColName].apply(
-                        lambda cell_value: 
-                            None if cell_value in self.lisstrDisguisedNulls 
-                            else cell_value
-                    )
+        if self.disguised_nulls_:
+            for strColName in self.columns_:
+                if strColName not in self.excluded_columns_:
+                    X[strColName] = X[strColName].replace(list(self.disguised_nulls_), None)
         if self.boolVerbose:
             print('finished step 2 Disguised_Nulls_Transformer()')
             print(X.head(20))
@@ -136,35 +131,26 @@ class Coerce_Type_Transformer(BaseEstimator, TransformerMixin):
         self.dicCoerce = dicCoerce
 
     def fit(self, X, y=None):
-        if self.lisstrColNames == []:
-            self.lisstrColNames = None
-
-        if self.lisstrColNames is None:
-            self.lisstrColNames = X.columns
-
-        if self.dicCoerce == {}:
-            self.dicCoerce = None
-
+        self.columns_ = _resolve_columns(X, self.lisstrColNames)
+        self.coerce_map_ = {} if self.dicCoerce in [None, {}] else dict(self.dicCoerce)
+        self.excluded_columns_ = _resolve_excluded_columns(self.lisstrColNamesExclude).union(self.coerce_map_.keys())
         return self
 
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["columns_", "coerce_map_", "excluded_columns_"])
         X = X.copy()
-        lisstrColNamesExcludeLocal = self.lisstrColNamesExclude
-        if not lisstrColNamesExcludeLocal:
-            lisstrColNamesExcludeLocal = [] 
-        if self.dicCoerce != None:
-            lisstrColNamesExcludeLocal.extend([strColName for strColName in self.dicCoerce.keys()])
 
         # Step 1: Attempt to make everything numerical
-        for strColName in self.lisstrColNames:
-            if strColName not in lisstrColNamesExcludeLocal:
-                X[strColName] = pd.to_numeric(
-                    X[strColName],
-                    errors='ignore'
-                )
+        for strColName in self.columns_:
+            if strColName in self.excluded_columns_:
+                continue
+            try:
+                X[strColName] = pd.to_numeric(X[strColName])
+            except (ValueError, TypeError):
+                continue
         # Step 2: Apply user-defined coercion
-        if self.dicCoerce:
-            for strColName, strDataType in self.dicCoerce.items():
+        if self.coerce_map_:
+            for strColName, strDataType in self.coerce_map_.items():
                 X[strColName] = X[strColName].astype(strDataType)
         
         if self.boolVerbose:
@@ -189,16 +175,12 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
 
     def fit(self, X: DataFrame, y=None):
         # generate dictionary of column name and impute value
-        if self.lisstrColNames == [] or self.lisstrColNames == None:
-            self.lisstrColNames = X.columns
-
-        
-        if self.lisstrColNamesExclude is None:
-            lisstrColNamesExclude = []
-
+        self.columns_ = _resolve_columns(X, self.lisstrColNames)
+        self.excluded_columns_ = _resolve_excluded_columns(self.lisstrColNamesExclude)
         X = X.copy()
-        for strColName in self.lisstrColNames:
-            if strColName not in lisstrColNamesExclude:
+        self.dicImpute_ = {}
+        for strColName in self.columns_:
+            if strColName not in self.excluded_columns_:
                 # Step 1: Get Mode
                 if is_string_dtype(X[strColName]) or is_bool_dtype(X[strColName]):
                     anyImputeValue = X[strColName].mode(dropna=True)
@@ -206,28 +188,22 @@ class Imputer_Transformer(BaseEstimator, TransformerMixin):
                 # Step 1: Get Mean
                 elif is_numeric_dtype(X[strColName]):
                     anyImputeValue = X[strColName].mean()
+                else:
+                    anyImputeValue = X[strColName].mode(dropna=True)
+                    anyImputeValue = anyImputeValue[0] if not anyImputeValue.empty else None
                 # Step 2: Update Impute Dictionary
-                self.dicImpute.update({strColName:anyImputeValue})
+                self.dicImpute_[strColName] = anyImputeValue
         return self
     
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["columns_", "excluded_columns_", "dicImpute_"])
         X = X.copy()
-        if self.lisstrColNamesExclude is None:
-            lisstrColNamesExclude = []
-
-        # Step 1: Force None if NaN
-        for strColName in self.lisstrColNames:
-            if strColName not in lisstrColNamesExclude:
-                X[strColName] = X[strColName].apply(
-                    lambda cell_value: None if pd.isna(cell_value)
-                    else cell_value
-                )
         # Step 2: Impute
-        X = X.fillna(self.dicImpute)
+        X = X.fillna(self.dicImpute_)
         
         if self.boolVerbose:
             print('finished step 4 Imputer_Transformer()')
-            print(self.dicImpute)
+            print(self.dicImpute_)
             print(X.head(20))
         return X
 
@@ -266,42 +242,44 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
         self.dicMaps = {}
 
     def fit(self, X: DataFrame, y=None):
-        if self.lisstrColNames == None or self.lisstrColNames == []:
-            self.lisstrColNames = X.columns
-
+        self.columns_ = _resolve_columns(X, self.lisstrColNames)
+        self.excluded_columns_ = _resolve_excluded_columns(self.lisstrColNamesExclude)
+        self.dicMaps_ = {}
         X = X.copy()
 
-        for strColName in self.lisstrColNames:
-            if strColName in self.lisstrColNamesExclude:
+        for strColName in self.columns_:
+            if strColName in self.excluded_columns_:
                 continue
 
             if not is_string_dtype(X[strColName]):
                 continue
 
             if self.strMethod == 'frequency':
-                X[strColName] = X[strColName].fillna(0)
-                dictMap = X[strColName].value_counts(
+                dictMap = X[strColName].dropna().value_counts(
                     ascending=self.boolAscending,
                     dropna=True
                 ).to_dict()
 
             elif self.strMethod == 'alphabetical':
-                X[strColName] = X[strColName].fillna(-1).astype(int)
-                uniques = sorted(X[strColName].dropna().unique(), reverse=not self.boolAscending)
+                uniques = sorted(
+                    X[strColName].dropna().astype(str).unique(),
+                    reverse=not self.boolAscending
+                )
                 dictMap = {k: i for i, k in enumerate(uniques)}
 
             else:
                 raise ValueError(f"Unsupported method: {self.strMethod}")
 
-            self.dicMaps[strColName] = dictMap
+            self.dicMaps_[strColName] = dictMap
 
         return self
 
     def transform(self, X: DataFrame):
+        check_is_fitted(self, attributes=["columns_", "excluded_columns_", "dicMaps_"])
         X = X.copy()
 
-        for strColName, dictMap in self.dicMaps.items():
-            if strColName in self.lisstrColNamesExclude:
+        for strColName, dictMap in self.dicMaps_.items():
+            if strColName in self.excluded_columns_:
                 continue
 
             # map instead of merge (faster + safe)
@@ -326,9 +304,11 @@ class Age_Tenure_Ratio(BaseEstimator, TransformerMixin):
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
+        self.output_column_ = self.strColNameAgeTenureRatio
         return self
 
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["output_column_"])
         X = X.copy()
         X[self.strColNameAgeTenureRatio] = np.where(
             X[self.strColNameTenure] == 0,                      # condition
@@ -353,9 +333,11 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
+        self.output_column_ = self.strColNameBalanceSalaryRatio
         return self
 
     def transform(self, X:DataFrame):
+        check_is_fitted(self, attributes=["output_column_"])
         X = X.copy()
         X[self.strColNameBalanceSalaryRatio] = np.where(
             X[self.strColNameSalary] == 0,                          # condition
@@ -374,18 +356,20 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
 ########################################################
 class Select_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, lisstrColNames:list[str], boolVerbose:bool = False):
-        self.lisstrColNames = lisstrColNames + ['Das_Row_Number']
+        self.lisstrColNames = list(lisstrColNames)
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
+        self.selected_columns_ = list(self.lisstrColNames)
         return self
 
     def transform(self, X:DataFrame):
-        X = X.copy()[self.lisstrColNames]
+        check_is_fitted(self, attributes=["selected_columns_"])
+        X = X.copy()
+        if 'Das_Row_Number' in X.columns:
+            X = X.sort_values(by='Das_Row_Number', ascending=True)
+        X = X[self.selected_columns_]
         if self.boolVerbose:
             print('finished step 8 select_col()')
             print(X.head(20))
-        return X.drop(
-            'Das_Row_Number',
-            axis=1
-        )
+        return X
