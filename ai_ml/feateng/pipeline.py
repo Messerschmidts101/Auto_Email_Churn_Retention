@@ -79,7 +79,7 @@ def build_pipeline_feature(
         ]
     )
 
-def save_pipeline_feature(pipeInput:Pipeline, strFileName:str=None):
+def save_pipeline_feature(pipeInput:Pipeline, strFileName:str):
     dateCreated = datetime.datetime.now()
     strFileName = strFileName + "_" + str(dateCreated)
     joblib.dump(pipeInput,strFileName)
