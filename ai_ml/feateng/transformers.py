@@ -11,7 +11,6 @@ def _resolve_columns(X: DataFrame, lisstrColNames: list[str] = None) -> list[str
         return list(X.columns)
     return list(lisstrColNames)
 
-
 def _resolve_excluded_columns(lisstrColNamesExclude: list[str] = None) -> set[str]:
     if lisstrColNamesExclude is None or lisstrColNamesExclude == []:
         return set()

@@ -1,6 +1,8 @@
 from sklearn.pipeline import Pipeline
 from ai_ml.feateng import transformers as t
+import joblib
 import os
+import datetime
 
 def build_pipeline_feature(
         lisstrColNamesX:list[str],
@@ -77,6 +79,10 @@ def build_pipeline_feature(
         ]
     )
 
+def save_pipeline_feature(pipeInput:Pipeline, strFileName:str=None):
+    dateCreated = datetime.datetime.now()
+    strFileName = strFileName + "_" + str(dateCreated)
+    joblib.dump(pipeInput,strFileName)
 
 def main(
         strPathTrainDataset = os.path.join('documents','train.csv'),
@@ -110,7 +116,6 @@ def main(
     objBasePipeline.fit(X_train, y_train)
     objBasePipeline.transform(X_train)
     #y_pred = objBasePipeline.predict(X_test)
-
 
 if __name__ == "__main__":
     # python -m ai_ml.feateng.pipeline
