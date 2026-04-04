@@ -217,7 +217,7 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
         lisstrColNames: list[str] = None,
         boolVerbose: bool = False,
         lisstrColNamesExclude: list[str] = None,
-        strMethod: str = 'Frequency',
+        strMethod: str = 'frequency', 
         boolAscending: bool = False
     ):
         
@@ -235,12 +235,16 @@ class Encoder_Transformer(BaseEstimator, TransformerMixin):
         """
         self.lisstrColNames = lisstrColNames
         self.boolVerbose = boolVerbose
-        self.lisstrColNamesExclude = lisstrColNamesExclude or []
-        self.strMethod = strMethod.lower()
+        self.lisstrColNamesExclude = lisstrColNamesExclude
+        self.strMethod = strMethod 
         self.boolAscending = boolAscending
         self.dicMaps = {}
 
     def fit(self, X: DataFrame, y=None):
+        self.strMethod = self.strMethod.lower()
+        if self.lisstrColNamesExclude is None:
+            self.lisstrColNamesExclude = [] 
+
         self.columns_ = _resolve_columns(X, self.lisstrColNames)
         self.excluded_columns_ = _resolve_excluded_columns(self.lisstrColNamesExclude)
         self.dicMaps_ = {}
@@ -355,11 +359,11 @@ class Balance_Salary_Ratio(BaseEstimator, TransformerMixin):
 ########################################################
 class Select_Transformer(BaseEstimator, TransformerMixin):
     def __init__(self, lisstrColNames:list[str], boolVerbose:bool = False):
-        self.lisstrColNames = list(lisstrColNames)
+        self.lisstrColNames = lisstrColNames
         self.boolVerbose = boolVerbose
     
     def fit(self, X, y=None):
-        self.selected_columns_ = list(self.lisstrColNames)
+        self.selected_columns_ = list(self.lisstrColNames) # useless, exist only so that pipeline/grid search knows the transformer was fitted...
         return self
 
     def transform(self, X:DataFrame):
@@ -367,7 +371,7 @@ class Select_Transformer(BaseEstimator, TransformerMixin):
         X = X.copy()
         if 'Das_Row_Number' in X.columns:
             X = X.sort_values(by='Das_Row_Number', ascending=True)
-        X = X[self.selected_columns_]
+        X = X[self.lisstrColNames]
         if self.boolVerbose:
             print('finished step 8 select_col()')
             print(X.head(20))

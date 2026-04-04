@@ -4,7 +4,7 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from ai_ml.feateng import pipeline as p 
 import os
 
-def build_pipeline_model(lisstrColNamesX: list[str], intModel: int, boolVerbose:bool = True):
+def build_pipeline_model(lisstrColNamesX: list[str], intModel: int, boolVerbose:bool = False):
     if intModel == 1:
         objModel = LinearRegression()
     elif intModel == 2:
