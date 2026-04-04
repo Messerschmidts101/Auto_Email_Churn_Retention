@@ -14,7 +14,7 @@ def create_artifact_name(strArtifactType: str):
     1. Returns a string name to use for joblib.dump()
     """
 
-    dateCreated = datetime.now()
+    dateCreated = datetime.now().strftime("%Y%m%d_%H%M%S")
     strArtifactType = strArtifactType.lower()
     if strArtifactType == 1 or strArtifactType == "transformer":
         strFileName = "transformer"
