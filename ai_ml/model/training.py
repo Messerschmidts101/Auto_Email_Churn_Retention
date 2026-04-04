@@ -1,9 +1,11 @@
 import pandas as pd
 from sklearn.model_selection import GridSearchCV
 from ai_ml.model import pipeline as p
+from ai_ml import utils as u
 import os
-
+import joblib
 from datetime import datetime
+from sklearn.pipeline import Pipeline
 
 dicConfigLinearRegression = {
     "model__fit_intercept": [True, False],
@@ -32,7 +34,25 @@ def train_model_many(
     tblData: pd.DataFrame,
     intCv: int = 5,
     boolVerbose: bool = True
-    ):
+    ) -> Pipeline:
+    """
+    # Inputs:
+    1. `intModel`: int. The chosen model, could only either be of the following:
+        - `1` - Linear Regression
+        = `2` - Logistic Regression
+        = `3` - Random Forest
+    2. `tblData`: pd.DataFrame,. The training dataframe. 
+    3. `intCv`: Integer. Default `5`. Not yet functional! Intended to set paritions for cross validation.
+    4. `boolVerbose`: Boolean. Default `True`
+
+    # Process:
+    1. Train test splits the `tblData`.
+    2. Assembles the pipeline model. Combines pipeline for feature transformations, and adds the estimator (chosen `intModel`) as final step.
+    3. Commences grid search for the possible hyperparameters of the `intModel`.
+
+    # Outputs:
+    1. Outputs only the best model of the grid search.
+    """
     ########################################################
     #######                                          #######
     #######          Step 1: Load Everything         #######
@@ -71,59 +91,28 @@ def train_model_many(
     timeStart = datetime.now()
     objGridSearch.fit(X,y)
     timeEnd = datetime.now()
-    
+    print(f"[[train_model_many]] 🪵 Time taken grid search: {timeEnd-timeStart}")
     ########################################################
     #######                                          #######
     #######          Step 3: Output Results          #######
     #######                                          #######
     ########################################################
-    print(f"[[train_model_many]] 🪵 Showing Grid Search Result. Time taken {timeEnd-timeStart}")
-    print(f"[[train_model_many]] 🪵 Keys")
-    print(sorted(objGridSearch.cv_results_.keys()))
-    print(f"[[train_model_many]] 🪵 Best Params")
-    print(objGridSearch.best_params_)
-    print(f"[[train_model_many]] 🪵 Best Score")
-    print(objGridSearch.best_score_)
-    print(f"[[train_model_many]] 🪵 Best Estimator")
-    print(objGridSearch.best_estimator_)
-    """
-    [[train_model_many]] 🪵 Showing Grid Search Result. Time taken 0:02:52.028190
-    [[train_model_many]] 🪵 Keys
-    ['mean_fit_time', 'mean_score_time', 'mean_test_score', 'param_model__max_depth', 'param_model__min_samples_leaf', 'param_model__min_samples_split', 'param_model__n_estimators', 'params', 'rank_test_score', 'split0_test_score', 'split1_test_score', 'split2_test_score', 'split3_test_score', 'split4_test_score', 'std_fit_time', 'std_score_time', 'std_test_score']
-    [[train_model_many]] 🪵 Best Params
-    {'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__min_samples_split': 5, 'model__n_estimators': 200}
-    [[train_model_many]] 🪵 Best Score
-    0.8794279021392578
-    [[train_model_many]] 🪵 Best Estimator
-    Pipeline(steps=[('Step_1_Fix_Order', Order_Transformer()),
-                    ('Step_2_Fix_Disguised_Nulls',
-                    Disguised_Nulls_Transformer(boolVerbose=True,
-                                                lisstrDisguisedNulls=['_', '',
-                                                                    ' '])),
-                    ('Step_3_Fix_Data_Types',
-                    Coerce_Type_Transformer(boolVerbose=True)),
-                    ('Step_4_Fix_Nulls', Imputer_Transformer(boolVerbose=True)),
-                    ('Step_5_Fix_Labels',
-                    Encoder_Transformer(boolVerbose=Tru...
-                                        strColNameSalary='EstimatedSalary')),
-                    ('Step_8_Finalize',
-                    Select_Transformer(boolVerbose=True,
-                                        lisstrColNames=['Surname', 'CreditScore',
-                                                        'Geography', 'Gender',
-                                                        'Age', 'Tenure', 'Balance',
-                                                        'NumOfProducts',
-                                                        'HasCrCard',
-                                                        'IsActiveMember',
-                                                        'EstimatedSalary',
-                                                        'RecentSatisfactionScore',
-                                                        'Age_Tenure_Ratio',
-                                                        'Balance_Salary_Ratio'])),
-                    ('model',
-                    RandomForestClassifier(min_samples_split=5,
-                                            n_estimators=200))])
-    """
+    if boolVerbose:
+        print(f"[[train_model_many]] 🪵 Keys")
+        print(sorted(objGridSearch.cv_results_.keys()))
+        print(f"[[train_model_many]] 🪵 Best Params")
+        print(objGridSearch.best_params_)
+        print(f"[[train_model_many]] 🪵 Best Score")
+        print(objGridSearch.best_score_)
+        print(f"[[train_model_many]] 🪵 Best Estimator")
+        print(objGridSearch.best_estimator_)
 
+    # this outputs the pipeline
+    pipeBestModel = objGridSearch.best_estimator_
+    strFileName = u.create_artifact_name('transformer')
+    joblib.dump(pipeBestModel,strFileName)
 
+    return pipeBestModel
 
 def main(
     strPathTrainDataset = os.path.join('documents','train.csv')

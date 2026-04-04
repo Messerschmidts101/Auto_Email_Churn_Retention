@@ -1,5 +1,6 @@
 from sklearn.pipeline import Pipeline
 from ai_ml.feateng import transformers as t
+from ai_ml import utils as u
 import joblib
 import os
 import datetime
@@ -79,9 +80,8 @@ def build_pipeline_feature(
         ]
     )
 
-def save_pipeline_feature(pipeInput:Pipeline, strFileName:str):
-    dateCreated = datetime.datetime.now()
-    strFileName = strFileName + "_" + str(dateCreated)
+def save_pipeline_feature(pipeInput:Pipeline):
+    strFileName = u.create_artifact_name('transformer')
     joblib.dump(pipeInput,strFileName)
 
 def main(
