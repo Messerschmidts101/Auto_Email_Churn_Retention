@@ -1,6 +1,10 @@
-from sklearn.pipeline import Pipeline
+import os
 from datetime import datetime
-import joblib
+
+ARTIFACTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "artifacts",
+)
 
 def create_artifact_name(strArtifactType: str):
     """
@@ -15,13 +19,16 @@ def create_artifact_name(strArtifactType: str):
     """
 
     dateCreated = datetime.now().strftime("%Y%m%d_%H%M%S")
-    strArtifactType = strArtifactType.lower()
-    if strArtifactType == 1 or strArtifactType == "transformer":
+    artifactType = strArtifactType.lower() if isinstance(strArtifactType, str) else strArtifactType
+    if artifactType == 1 or artifactType == "transformer":
         strFileName = "transformer"
-    elif strArtifactType == 2 or strArtifactType == "estimator":
+    elif artifactType == 2 or artifactType == "estimator":
         strFileName = "estimator"
+    elif artifactType == 3 or artifactType == "churn_model":
+        strFileName = "churn_model"
     else:
         raise Exception(f"[[create_artifact_name]] 😱 Error strArtifactType value: `{strArtifactType}`. Must only be 1 or 2, or 'transformer' or 'estimator'.")
 
-    strFileName = strFileName + "_" + str(dateCreated)
+    os.makedirs(ARTIFACTS_DIR, exist_ok=True)
+    strFileName = os.path.join(ARTIFACTS_DIR, strFileName + "_" + str(dateCreated))
     return strFileName

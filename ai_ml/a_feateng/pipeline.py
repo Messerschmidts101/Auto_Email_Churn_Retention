@@ -1,5 +1,5 @@
 from sklearn.pipeline import Pipeline
-from ai_ml.feateng import transformers as t
+from ai_ml.a_feateng import transformers as t
 from ai_ml import utils as u
 import joblib
 import os
@@ -87,7 +87,7 @@ def save_pipeline_feature(pipeInput:Pipeline):
 def main(
         strPathTrainDataset = os.path.join('documents','train.csv'),
     ):
-    #from ai_ml.feateng.pipeline import build_model_pipeline
+    
     import pandas as pd
     from sklearn.model_selection import train_test_split
     tblRaw = pd.read_csv(
@@ -116,6 +116,7 @@ def main(
     objBasePipeline.fit(X_train, y_train)
     objBasePipeline.transform(X_train)
     #y_pred = objBasePipeline.predict(X_test)
+    save_pipeline_feature(objBasePipeline)
 
 if __name__ == "__main__":
     # python -m ai_ml.feateng.pipeline
