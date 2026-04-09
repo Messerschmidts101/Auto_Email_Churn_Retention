@@ -297,6 +297,10 @@ function showSection(sectionId) {
         const isActive = button.dataset.sectionTarget === sectionId;
         button.classList.toggle("is-active", isActive);
     });
+
+    requestAnimationFrame(() => {
+        refreshTableViewports();
+    });
 }
 
 function showModelLabStep(stepId) {
@@ -330,6 +334,10 @@ function showModelLabStep(stepId) {
             console.error("Model history load error:", error);
         });
     }
+
+    requestAnimationFrame(() => {
+        refreshTableViewports();
+    });
 }
 
 function normalizeTableData(data) {
@@ -340,6 +348,15 @@ function normalizeTableData(data) {
         return [data];
     }
     return [];
+}
+
+function normalizeFeatureImportanceRows(data) {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    const rows = data.length === 1 && Array.isArray(data[0]) ? data[0] : data;
+    return rows.filter((row) => row && typeof row === "object" && !Array.isArray(row));
 }
 
 function toNumber(id, fallbackValue) {
@@ -604,9 +621,11 @@ async function trainModel() {
             buildMetadataLine(data.timeTaken, data.dateCreated) ||
             "Training completed.";
 
-        if (Array.isArray(data.tblFeatureImportance) && data.tblFeatureImportance.length > 0) {
+        const featureImportanceRows = normalizeFeatureImportanceRows(data.tblFeatureImportance);
+
+        if (featureImportanceRows.length > 0) {
             displayTable(
-                data.tblFeatureImportance,
+                featureImportanceRows,
                 "feature-importance-preview",
                 "No feature importance output available."
             );
@@ -996,7 +1015,7 @@ function renderBestModelFromHistory(row, totalRuns) {
         "No confusion matrix available."
     );
 
-    if (!UI_STATE.lastTrainingResponse?.tblFeatureImportance?.length) {
+    if (!normalizeFeatureImportanceRows(UI_STATE.lastTrainingResponse?.tblFeatureImportance).length) {
         const featureContainer = document.getElementById("feature-importance-preview");
         if (featureContainer) {
             featureContainer.innerHTML =
@@ -1505,7 +1524,9 @@ function displayTable(data, targetId, emptyMessage = "No data to display.") {
     tableScroll.appendChild(table);
 
     container.append(toolbar, tableScroll);
-    lockTableViewport(tableScroll, table, TABLE_VISIBLE_ROWS);
+    requestAnimationFrame(() => {
+        lockTableViewport(tableScroll, table, TABLE_VISIBLE_ROWS);
+    });
 }
 
 function lockTableViewport(tableScroll, table, visibleRows) {
@@ -1528,9 +1549,26 @@ function lockTableViewport(tableScroll, table, visibleRows) {
         return total + Math.ceil(row.getBoundingClientRect().height);
     }, 0);
 
+    if (headerHeight === 0 && rowsHeight === 0) {
+        tableScroll.style.removeProperty("height");
+        tableScroll.style.removeProperty("max-height");
+        return;
+    }
+
     const viewportHeight = headerHeight + rowsHeight + 2;
     tableScroll.style.height = `${viewportHeight}px`;
     tableScroll.style.maxHeight = `${viewportHeight}px`;
+}
+
+function refreshTableViewports() {
+    document.querySelectorAll(".table-scroll").forEach((tableScroll) => {
+        const table = tableScroll.querySelector("table");
+        if (!table) {
+            return;
+        }
+
+        lockTableViewport(tableScroll, table, TABLE_VISIBLE_ROWS);
+    });
 }
 
 function downloadRowsAsCsv(rows, filename) {
