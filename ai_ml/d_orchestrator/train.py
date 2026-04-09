@@ -142,9 +142,21 @@ def build_pipeline_model_best(
         print(objGridSearch.best_score_)
         print("[[build_pipeline_model_best]] 🪵 Best Estimator")
         print(objGridSearch.best_estimator_)
+
     ########################################################
     #######                                          #######
-    #######             Step 3: Add Shap             #######
+    #######             Step 3: Get Evals            #######
+    #######                                          #######
+    ########################################################
+    dicResults = c.get_all_evals(
+        X,
+        y,
+        pipeModel=objGridSearch.best_estimator_,
+    )
+    
+    ########################################################
+    #######                                          #######
+    #######             Step 4: Add Shap             #######
     #######                                          #######
     ########################################################
     pipeBestModel = objGridSearch.best_estimator_
@@ -169,12 +181,14 @@ def build_pipeline_model_best(
     #######          Step 4: Return Results          #######
     #######                                          #######
     ########################################################
+    '''
     XTrain, XTest, yTrain, yTest = train_test_split(
         X,
         y,
         test_size=0.2,
         shuffle=False,
     )
+
     npYTest = np.asarray(yTest, dtype=int)
     npYPred = np.asarray(objGridSearch.best_estimator_.predict(XTest))
 
@@ -198,7 +212,7 @@ def build_pipeline_model_best(
         "fltRecall": float(recall_score(npYTest, npYPred, zero_division=0)),
         "fltF1": float(f1_score(npYTest, npYPred, zero_division=0)),
         "objConfusionMatrix": objConfusionMatrix,
-    }
+    }'''
     return pipeBestModel, dicResults
 
 def main(

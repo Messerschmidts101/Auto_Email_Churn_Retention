@@ -22,6 +22,7 @@ from app.schema.schema import (
     DTO_Request_RunTraining,
     DTO_Respond_RunTraining,
     DTO_Respond_UploadDataFrame,
+    DTO_FeatureImportanceRow
 )
 
 
@@ -52,14 +53,14 @@ router = APIRouter(
 
 
 def _validate_required_columns(
-    tbl_input: pd.DataFrame,
+    tblInput: pd.DataFrame,
     lisstr_required_columns: list[str],
     str_dataset_name: str,
 ) -> None:
     lisstr_missing_columns = [
         str_column
         for str_column in lisstr_required_columns
-        if str_column not in tbl_input.columns
+        if str_column not in tblInput.columns
     ]
     if lisstr_missing_columns:
         raise HTTPException(
@@ -106,38 +107,38 @@ def upload_training_data(
     objDB: Session = Depends(connect_db),
 ) -> DTO_Respond_UploadDataFrame:
     try:
-        tbl_latest_training = pd.read_csv(objFile.file)
+        tblLatestTrainData = pd.read_csv(objFile.file)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid file") from exc
 
     _validate_required_columns(
-        tbl_input=tbl_latest_training,
+        tblInput=tblLatestTrainData,
         lisstr_required_columns=TRAINING_COLUMNS,
         str_dataset_name="Training data",
     )
-    tbl_latest_training = tbl_latest_training[TRAINING_COLUMNS].copy()
+    tblLatestTrainData = tblLatestTrainData[TRAINING_COLUMNS].copy()
 
     _ensure_storage_directory()
-    tbl_latest_training.to_csv(
+    tblLatestTrainData.to_csv(
         os.path.join(config.strPathStorageML, config.strNameCSVTrain),
         index=False,
     )
 
-    tbl_historical_training = tbl_latest_training.copy()
-    tbl_historical_training["meta_DateCreated"] = datetime.date.today()
-    tbl_historical_training["meta_Id"] = [
-        str(uuid.uuid4()) for _ in range(len(tbl_historical_training))
+    tblHistoricalTrainData = tblLatestTrainData.copy()
+    tblHistoricalTrainData["meta_DateCreated"] = datetime.date.today()
+    tblHistoricalTrainData["meta_Id"] = [
+        str(uuid.uuid4()) for _ in range(len(tblHistoricalTrainData))
     ]
 
     try:
         objDB.query(Latest_Training).delete(synchronize_session=False)
         objDB.bulk_insert_mappings(
             Latest_Training,
-            tbl_latest_training.to_dict(orient="records"),
+            tblLatestTrainData.to_dict(orient="records"),
         )
         objDB.bulk_insert_mappings(
             Historical_Training,
-            tbl_historical_training.to_dict(orient="records"),
+            tblHistoricalTrainData.to_dict(orient="records"),
         )
         objDB.commit()
     except Exception as exc:
@@ -149,7 +150,7 @@ def upload_training_data(
 
     return DTO_Respond_UploadDataFrame(
         dicStatus={200: "Success"},
-        tblOutput=tbl_latest_training.to_dict(orient="records"),
+        tblOutput=tblLatestTrainData.to_dict(orient="records"),
     )
 
 
@@ -163,15 +164,15 @@ def run_training_model(
     objServer: Request,
     objDB: Session = Depends(connect_db),
 ) -> DTO_Respond_RunTraining:
-    str_path_training_dataset = os.path.join(
+    strPathTrainData = os.path.join(
         config.strPathStorageML,
         config.strNameCSVTrain,
     )
-    if not os.path.exists(str_path_training_dataset):
+    if not os.path.exists(strPathTrainData):
         raise HTTPException(status_code=404, detail="Training data not found")
 
     try:
-        tbl_training_data = pd.read_csv(str_path_training_dataset)
+        tblTrainData = pd.read_csv(strPathTrainData)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -179,14 +180,14 @@ def run_training_model(
         ) from exc
 
     _validate_required_columns(
-        tbl_input=tbl_training_data,
+        tblInput=tblTrainData,
         lisstr_required_columns=TRAINING_COLUMNS,
         str_dataset_name="Training data",
     )
 
-    int_top_feats = max(MIN_SCORING_FEATURES, objRequest.intTopFeats)
-    tbl_training_data = tbl_training_data[TRAINING_COLUMNS].copy()
-    tbl_training_model_input = tbl_training_data.drop(columns=["CustomerId"])
+    intTopFeats = max(MIN_SCORING_FEATURES, objRequest.intTopFeats)
+    tblTrainData = tblTrainData[TRAINING_COLUMNS].copy()
+    tbl_training_model_input = tblTrainData.drop(columns=["CustomerId"])
 
     try:
         time_start = time.perf_counter()
@@ -195,7 +196,7 @@ def run_training_model(
             tblData=tbl_training_model_input,
             boolVerbose=False,
             classModel=_build_training_pipeline_factory(objRequest.intRandomState),
-            classEval=partial(SHAP_Transformer, intTopFeats=int_top_feats),
+            classEval=partial(SHAP_Transformer, intTopFeats=intTopFeats),
         )
         time_taken = time.perf_counter() - time_start
     except (TypeError, ValueError) as exc:
@@ -204,6 +205,7 @@ def run_training_model(
         raise HTTPException(status_code=500, detail="Training failed") from exc
 
     _ensure_storage_directory()
+    # TODO: address redundancy with building model
     try:
         joblib.dump(
             objModel,
@@ -217,19 +219,19 @@ def run_training_model(
 
     objServer.app.state.model = objModel
 
-    obj_confusion_matrix = dicResults["objConfusionMatrix"]
-    dtm_created = datetime.datetime.now()
-    row_model = Historical_Models(
+    dicConfusionMatrix = dicResults["objConfusionMatrix"]
+    dtCreated = datetime.datetime.now()
+    rowModel = Historical_Models(
         meta_Id=str(uuid.uuid4()),
-        meta_DateCreated=dtm_created.date(),
+        meta_DateCreated=dtCreated.date(),
         Accuracy=float(dicResults["fltAccuracy"]),
         Precision=float(dicResults["fltPrecision"]),
         Recall=float(dicResults["fltRecall"]),
         F1=float(dicResults["fltF1"]),
-        CountTrueNegative=int(obj_confusion_matrix[0][0]),
-        CountFalsePositive=int(obj_confusion_matrix[0][1]),
-        CountFalseNegative=int(obj_confusion_matrix[1][0]),
-        CountTruePositive=int(obj_confusion_matrix[1][1]),
+        CountTrueNegative=int(dicConfusionMatrix[0][0]),
+        CountFalsePositive=int(dicConfusionMatrix[0][1]),
+        CountFalseNegative=int(dicConfusionMatrix[1][0]),
+        CountTruePositive=int(dicConfusionMatrix[1][1]),
         CountTrainingPositiveClass=int(dicResults["intCountTrainPositiveClass"]),
         CountTrainingNegativeClass=int(dicResults["intCountTrainNegativeClass"]),
         CountTestPositiveClass=int(dicResults["intCountTestPositiveClass"]),
@@ -237,7 +239,7 @@ def run_training_model(
     )
 
     try:
-        objDB.add(row_model)
+        objDB.add(rowModel)
         objDB.commit()
     except Exception as exc:
         objDB.rollback()
@@ -245,11 +247,23 @@ def run_training_model(
             status_code=500,
             detail="Failed to persist model metrics",
         ) from exc
+    
+    tblTopFeats = [
+        DTO_FeatureImportanceRow(
+            strFeatureName=strFeat,
+            fltImportance=float(fltScore),
+            intRank=intIndex,
+        )
+        for intIndex, (strFeat, fltScore) in enumerate(
+            dicResults["dicFeats"].items(),
+            start=1,
+        )
+    ]
 
     return DTO_Respond_RunTraining(
         dicStatus={200: "Success"},
         timeTaken=time_taken,
-        dateCreated=dtm_created.isoformat(),
+        dateCreated=dtCreated.isoformat(),
         objDatasetSplit=DTO_DatasetSplit(
             intNegativeTesting=int(dicResults["intCountTestNegativeClass"]),
             intNegativeTraining=int(dicResults["intCountTrainNegativeClass"]),
@@ -257,10 +271,10 @@ def run_training_model(
             intPositiveTraining=int(dicResults["intCountTrainPositiveClass"]),
         ),
         objConfusionMatrix=DTO_ConfusionMatrix(
-            intFalseNegative=int(obj_confusion_matrix[1][0]),
-            intFalsePositive=int(obj_confusion_matrix[0][1]),
-            intTrueNegative=int(obj_confusion_matrix[0][0]),
-            intTruePositive=int(obj_confusion_matrix[1][1]),
+            intFalseNegative=int(dicConfusionMatrix[1][0]),
+            intFalsePositive=int(dicConfusionMatrix[0][1]),
+            intTrueNegative=int(dicConfusionMatrix[0][0]),
+            intTruePositive=int(dicConfusionMatrix[1][1]),
         ),
         objMetrics=DTO_Metrics(
             fltAccuracy=float(dicResults["fltAccuracy"]),
@@ -268,5 +282,5 @@ def run_training_model(
             fltRecall=float(dicResults["fltRecall"]),
             fltF1=float(dicResults["fltF1"]),
         ),
-        tblFeatureImportance=[],
+        tblFeatureImportance=tblTopFeats,
     )
