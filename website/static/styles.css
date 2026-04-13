@@ -516,6 +516,65 @@ button:disabled {
     line-height: 1.55;
 }
 
+.summary-card-class-split {
+    gap: 0.75rem;
+    align-content: start;
+    border-color: rgba(234, 122, 47, 0.18);
+    background:
+        linear-gradient(180deg, rgba(234, 122, 47, 0.08), rgba(255, 255, 255, 0.86));
+}
+
+.summary-card-class-split strong {
+    color: var(--accent-deep);
+}
+
+.class-split-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.class-split-row {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.class-split-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.class-split-label {
+    font-weight: 800;
+    color: var(--accent-deep);
+}
+
+.class-split-stat,
+.class-split-note {
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.class-split-note {
+    margin: 0;
+}
+
+.class-split-bar {
+    height: 0.62rem;
+    border-radius: 999px;
+    background: rgba(20, 55, 84, 0.08);
+    overflow: hidden;
+}
+
+.class-split-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--accent), #f29a59);
+}
+
 .metric-tile {
     min-height: 120px;
     padding: 1rem;
@@ -1115,7 +1174,7 @@ body::before,
 
 .model-load-step-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(220px, 0.72fr) minmax(640px, 2.75fr) minmax(220px, 0.72fr);
     gap: 1rem;
 }
 
@@ -1127,6 +1186,7 @@ body::before,
 
 .model-load-step-card-wide {
     min-width: 0;
+    width: 100%;
 }
 
 .model-load-step-heading {
@@ -1178,6 +1238,43 @@ body::before,
 .model-load-target-field span {
     color: var(--muted);
     font-weight: 700;
+}
+
+#train-target-column {
+    appearance: none;
+    color: #fffaf6;
+    border-color: rgba(234, 122, 47, 0.3);
+    background:
+        linear-gradient(45deg, transparent 50%, #fffaf6 50%),
+        linear-gradient(135deg, #fffaf6 50%, transparent 50%),
+        linear-gradient(135deg, var(--accent), #f29a59);
+    background-position:
+        calc(100% - 1.15rem) calc(50% - 0.14rem),
+        calc(100% - 0.8rem) calc(50% - 0.14rem),
+        0 0;
+    background-size:
+        0.45rem 0.45rem,
+        0.45rem 0.45rem,
+        100% 100%;
+    background-repeat: no-repeat;
+    box-shadow: var(--shadow-pop);
+}
+
+#train-target-column option {
+    color: #fffaf6;
+    background-color: var(--accent);
+}
+
+#train-target-column:focus {
+    border-color: rgba(234, 122, 47, 0.42);
+    box-shadow:
+        var(--shadow-pop),
+        0 0 0 4px rgba(234, 122, 47, 0.14);
+}
+
+#train-target-column:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
 }
 
 .model-load-input-actions .file-field {
@@ -1257,6 +1354,43 @@ body::before,
 .column-review-include input[type="checkbox"]:disabled {
     cursor: not-allowed;
     opacity: 0.7;
+}
+
+.column-review-scroll {
+    width: 100%;
+}
+
+.column-review-table {
+    width: 100%;
+    min-width: 100%;
+    table-layout: fixed;
+}
+
+.column-review-table th,
+.column-review-table td {
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.column-review-table th:nth-child(1),
+.column-review-table td:nth-child(1) {
+    width: 22%;
+}
+
+.column-review-table th:nth-child(2),
+.column-review-table td:nth-child(2) {
+    width: 12%;
+}
+
+.column-review-table th:nth-child(3),
+.column-review-table td:nth-child(3) {
+    width: 52%;
+}
+
+.column-review-table th:nth-child(4),
+.column-review-table td:nth-child(4) {
+    width: 14%;
 }
 
 .stage-card {
@@ -1461,7 +1595,6 @@ tbody tr:nth-child(even) {
 tbody tr:hover {
     background: rgba(234, 122, 47, 0.08);
 }
-
 @media (max-width: 1240px) {
     .app-shell {
         grid-template-columns: 1fr;
@@ -1535,3 +1668,4 @@ tbody tr:hover {
         grid-template-columns: 1fr;
     }
 }
+

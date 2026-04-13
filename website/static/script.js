@@ -21,7 +21,7 @@ const API_CONFIG = {
 
 const MAX_TABLE_RENDER_ROWS = 10000;
 const TABLE_VISIBLE_ROWS = 20;
-const COLUMN_REVIEW_VISIBLE_ROWS = 6;
+const COLUMN_REVIEW_VISIBLE_ROWS = 10;
 const MODEL_LAB_STEP_META = {
     load: {
         title: "Navigation Pane: Model Lab -> Load Training",
@@ -164,7 +164,7 @@ function buildModelLabWorkspace() {
                             <button
                                 type="button"
                                 id="btn-proceed-model-run"
-                                class="secondary-button is-disabled"
+                                class="primary-button is-disabled"
                                 onclick="showModelLabStep('run')"
                                 data-disabled-title="Upload a training dataset first."
                                 title="Upload a training dataset first."
@@ -767,6 +767,20 @@ function renderTrainingDatasetProfile(rows, datasetSplit = null) {
     renderLoadStepReadiness(profile);
     renderTrainingFeatureTable(profile.fields);
 
+    const classSplitPreview = buildTargetClassSplitSummary(records, profile.targetColumn);
+
+    if (classSplitPreview) {
+        summaryContainer.appendChild(buildTargetClassSplitCard(classSplitPreview));
+    } else {
+        summaryContainer.appendChild(
+            buildSummaryCard(
+                "Target class split",
+                "Unavailable",
+                "Choose a target feature in Step 2 to inspect its class distribution."
+            )
+        );
+    }
+
     summaryContainer.appendChild(
         buildSummaryCard("Rows loaded", profile.rowCount.toLocaleString(), "Records currently staged for training.")
     );
@@ -788,32 +802,6 @@ function renderTrainingDatasetProfile(rows, datasetSplit = null) {
                 : "Choose a target feature in Step 2 to label it in the review panes."
         )
     );
-
-    if (datasetSplit) {
-        const splitRow = normalizeTableData(datasetSplit)[0] || {};
-        const trainTotal =
-            (Number(splitRow.intNegativeTraining) || 0) +
-            (Number(splitRow.intPositiveTraining) || 0);
-        const testTotal =
-            (Number(splitRow.intNegativeTesting) || 0) +
-            (Number(splitRow.intPositiveTesting) || 0);
-
-        summaryContainer.appendChild(
-            buildSummaryCard(
-                "Dataset split",
-                `${trainTotal.toLocaleString()} / ${testTotal.toLocaleString()}`,
-                `Train positives ${Number(splitRow.intPositiveTraining || 0).toLocaleString()} and test positives ${Number(splitRow.intPositiveTesting || 0).toLocaleString()}.`
-            )
-        );
-    } else {
-        summaryContainer.appendChild(
-            buildSummaryCard(
-                "Dataset split",
-                "Pending training",
-                "Run the training step to populate the backend train/test split summary."
-            )
-        );
-    }
 }
 
 function renderTrainingFeatureTable(fields) {
@@ -887,9 +875,10 @@ function renderTrainingColumnReview(rows) {
     }
 
     const tableScroll = document.createElement("div");
-    tableScroll.className = "table-scroll";
+    tableScroll.className = "table-scroll column-review-scroll";
 
     const table = document.createElement("table");
+    table.className = "column-review-table";
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
     ["Feature Name", "Status", "Why", "Include In Training?"].forEach((label) => {
@@ -1075,6 +1064,103 @@ function buildDatasetProfile(rows) {
         fields: fieldRows,
         reviewRows,
     };
+}
+
+function buildTargetClassSplitSummary(rows, targetColumn) {
+    const records = normalizeTableData(rows);
+
+    if (!records.length || !targetColumn) {
+        return null;
+    }
+
+    const classCounts = new Map();
+    let missingCount = 0;
+
+    records.forEach((row) => {
+        const value = row[targetColumn];
+        if (value === null || value === undefined || value === "") {
+            missingCount += 1;
+            return;
+        }
+
+        const label = formatTableValue(value);
+        classCounts.set(label, (classCounts.get(label) || 0) + 1);
+    });
+
+    if (!classCounts.size) {
+        return null;
+    }
+
+    const sortedClassCounts = [...classCounts.entries()].sort((left, right) => {
+        const countDelta = right[1] - left[1];
+        if (countDelta !== 0) {
+            return countDelta;
+        }
+        return left[0].localeCompare(right[0]);
+    });
+
+    return {
+        targetLabel: humanizeLabel(targetColumn),
+        populatedCount: [...classCounts.values()].reduce((total, count) => total + count, 0),
+        missingCount,
+        classCount: sortedClassCounts.length,
+        rows: sortedClassCounts.map(([label, count]) => ({
+            label,
+            count,
+        })),
+    };
+}
+
+function buildTargetClassSplitCard(summary) {
+    const card = document.createElement("div");
+    card.className = "summary-card summary-card-class-split";
+
+    const kicker = document.createElement("span");
+    kicker.className = "kicker";
+    kicker.textContent = "Target class split";
+
+    const title = document.createElement("strong");
+    title.textContent = summary.targetLabel;
+
+    const description = document.createElement("p");
+    description.textContent = `${summary.classCount.toLocaleString()} class(es) across ${summary.populatedCount.toLocaleString()} populated row(s).`;
+
+    const list = document.createElement("div");
+    list.className = "class-split-list";
+
+    summary.rows.slice(0, 4).forEach((row) => {
+        const percent = summary.populatedCount > 0 ? row.count / summary.populatedCount : 0;
+        const rowElement = document.createElement("div");
+        rowElement.className = "class-split-row";
+        rowElement.innerHTML = `
+            <div class="class-split-row-top">
+                <span class="class-split-label">${escapeHtml(String(row.label))}</span>
+                <span class="class-split-stat">${row.count.toLocaleString()} row(s) | ${formatPercentage(percent)}</span>
+            </div>
+            <div class="class-split-bar">
+                <span style="width:${Math.max(percent * 100, percent > 0 ? 8 : 0).toFixed(1)}%"></span>
+            </div>
+        `;
+        list.appendChild(rowElement);
+    });
+
+    card.append(kicker, title, description, list);
+
+    if (summary.classCount > 4) {
+        const moreNote = document.createElement("p");
+        moreNote.className = "class-split-note";
+        moreNote.textContent = `+${(summary.classCount - 4).toLocaleString()} more class(es) not shown in this preview.`;
+        card.appendChild(moreNote);
+    }
+
+    if (summary.missingCount > 0) {
+        const missingNote = document.createElement("p");
+        missingNote.className = "class-split-note";
+        missingNote.textContent = `${summary.missingCount.toLocaleString()} row(s) are blank for this target.`;
+        card.appendChild(missingNote);
+    }
+
+    return card;
 }
 
 function resolveTrainingTargetColumn(columns) {
