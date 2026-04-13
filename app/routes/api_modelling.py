@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ai_ml.b_model.pipeline import build_pipeline_model
 from ai_ml.c_evaluator.transformers import SHAP_Transformer
 from ai_ml.d_orchestrator.train import build_pipeline_model_best
-from app.core import config
+from app.core import config as c
 from app.db.database import connect_db
 from app.db.schema import Historical_Models, Historical_Training, Latest_Training
 from app.schema.schema import (
@@ -24,27 +24,6 @@ from app.schema.schema import (
     DTO_Respond_UploadDataFrame,
     DTO_FeatureImportanceRow
 )
-
-
-TRAINING_COLUMNS = [
-    "CustomerId",
-    "Surname",
-    "CreditScore",
-    "Geography",
-    "Gender",
-    "Age",
-    "Tenure",
-    "Balance",
-    "NumOfProducts",
-    "HasCrCard",
-    "IsActiveMember",
-    "EstimatedSalary",
-    "Exited",
-    "RecentSatisfactionScore",
-]
-DEFAULT_MODEL_ID = 3
-MIN_SCORING_FEATURES = 5
-
 
 router = APIRouter(
     prefix="/train",
@@ -73,7 +52,7 @@ def _validate_required_columns(
 
 
 def _ensure_storage_directory() -> None:
-    os.makedirs(config.strPathStorageML, exist_ok=True)
+    os.makedirs(c.strPathStorageML, exist_ok=True)
 
 
 def _build_training_pipeline_factory(int_random_state: int):
@@ -113,14 +92,14 @@ def upload_training_data(
 
     _validate_required_columns(
         tblInput=tblLatestTrainData,
-        lisstr_required_columns=TRAINING_COLUMNS,
+        lisstr_required_columns=c.lisstrFeatsDefault,
         str_dataset_name="Training data",
     )
-    tblLatestTrainData = tblLatestTrainData[TRAINING_COLUMNS].copy()
+    tblLatestTrainData = tblLatestTrainData.copy()
 
     _ensure_storage_directory()
     tblLatestTrainData.to_csv(
-        os.path.join(config.strPathStorageML, config.strNameCSVTrain),
+        os.path.join(c.strPathStorageML, c.strNameCSVTrain),
         index=False,
     )
 
@@ -165,8 +144,8 @@ def run_training_model(
     objDB: Session = Depends(connect_db),
 ) -> DTO_Respond_RunTraining:
     strPathTrainData = os.path.join(
-        config.strPathStorageML,
-        config.strNameCSVTrain,
+        c.strPathStorageML,
+        c.strNameCSVTrain,
     )
     if not os.path.exists(strPathTrainData):
         raise HTTPException(status_code=404, detail="Training data not found")
@@ -181,22 +160,20 @@ def run_training_model(
 
     _validate_required_columns(
         tblInput=tblTrainData,
-        lisstr_required_columns=TRAINING_COLUMNS,
+        lisstr_required_columns=c.lisstrFeatsDefault,
         str_dataset_name="Training data",
     )
 
-    intTopFeats = max(MIN_SCORING_FEATURES, objRequest.intTopFeats)
-    tblTrainData = tblTrainData[TRAINING_COLUMNS].copy()
-    tbl_training_model_input = tblTrainData.drop(columns=["CustomerId"])
-
+    intTopFeats = max(c.intCountFeatsScoring, objRequest.intTopFeats)
+    tblTrainData = tblTrainData[objRequest.lisstrFeats + [objRequest.strFeatTarget]].copy() # TODO: change here 
     try:
         time_start = time.perf_counter()
         objModel, dicResults = build_pipeline_model_best(
-            intModel=DEFAULT_MODEL_ID,
-            tblData=tbl_training_model_input,
-            boolVerbose=False,
-            classModel=_build_training_pipeline_factory(objRequest.intRandomState),
-            classEval=partial(SHAP_Transformer, intTopFeats=intTopFeats),
+            intModel = c.intModelDefault, #TODO: change soon
+            tblData = tblTrainData,
+            boolVerbose = False,
+            classModel = _build_training_pipeline_factory(objRequest.intRandomState),
+            classEval = partial(SHAP_Transformer, intTopFeats=intTopFeats),
         )
         time_taken = time.perf_counter() - time_start
     except (TypeError, ValueError) as exc:
@@ -209,7 +186,7 @@ def run_training_model(
     try:
         joblib.dump(
             objModel,
-            os.path.join(config.strPathStorageML, config.strNameMLFinal),
+            os.path.join(c.strPathStorageML, c.strNameMLFinal),
         )
     except Exception as exc:
         raise HTTPException(

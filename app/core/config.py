@@ -35,3 +35,28 @@ strPathPersonaLLM = os.path.join(os.getcwd(),'website','Temporary_Files','person
 fltTemperature = 0.1
 intRetrieverK = 5
 intLLMAccessory = 4
+
+########################################################
+#######                                          #######
+#######                   D. ML                  #######
+#######                                          #######
+########################################################
+
+lisstrFeatsDefault = [
+    #"CustomerId",
+    #"Surname",
+    "CreditScore",
+    "Geography",
+    "Gender",
+    "Age",
+    "Tenure",
+    "Balance",
+    "NumOfProducts",
+    "HasCrCard",
+    "IsActiveMember",
+    "EstimatedSalary",
+    "Exited",
+    "RecentSatisfactionScore",
+]
+intModelDefault = 3
+intCountFeatsScoring = 5

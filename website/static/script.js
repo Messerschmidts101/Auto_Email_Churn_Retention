@@ -21,11 +21,12 @@ const API_CONFIG = {
 
 const MAX_TABLE_RENDER_ROWS = 10000;
 const TABLE_VISIBLE_ROWS = 20;
+const COLUMN_REVIEW_VISIBLE_ROWS = 10;
 const MODEL_LAB_STEP_META = {
     load: {
         title: "Navigation Pane: Model Lab -> Load Training",
         subtitle:
-            "Upload the training CSV and inspect the dataset before running the current backend training pipeline.",
+            "Upload the training CSV, review the prescribed column checks, and inspect the previews before running the current backend training pipeline.",
     },
     run: {
         title: "Navigation Pane: Model Lab -> Run Training",
@@ -48,6 +49,8 @@ const UI_STATE = {
     lastTrainingResponse: null,
     modelHistoryRows: [],
     modelHistoryLoaded: false,
+    trainingTargetColumn: null,
+    trainingColumnInclusion: {},
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -113,42 +116,100 @@ function buildModelLabWorkspace() {
 
     root.innerHTML = `
         <div id="model-step-load" class="model-step-view">
-            <div class="model-grid-load">
-                <article class="panel stage-card stage-card-a">
-                    <div class="panel-header panel-header-stack">
-                        <div>
-                            <span class="stage-index">A.</span>
-                            <h3>Dataset Preview</h3>
-                            <p>The uploaded training dataset is rendered here exactly as returned by the backend upload route.</p>
+            <div class="model-load-flow">
+                <div class="model-load-step-grid">
+                    <article class="panel model-load-step-card">
+                        <div class="model-load-step-heading">
+                            <span class="model-load-step-kicker">Step 1</span>
+                            <h3>Load Training</h3>
+                            <p>Upload the training CSV into the current Model Lab workspace.</p>
                         </div>
-                        <div class="panel-actions">
+                        <div class="model-load-input-actions">
                             <div id="model-lab-load-input-slot"></div>
                             <button type="button" class="primary-button" onclick="uploadCSV('train')">Upload Training CSV</button>
                         </div>
-                    </div>
-                    <div id="model-lab-load-status-slot" class="inline-stack"></div>
-                    <div id="model-lab-load-preview-slot"></div>
-                </article>
-                <article class="panel stage-card stage-card-c">
-                    <div class="panel-header">
-                        <div>
-                            <span class="stage-index">C.</span>
-                            <h3>Dataset Split &amp; Feature Summary</h3>
-                            <p>Dataset profiling appears after upload. Training split details appear after a model run.</p>
+                        <div id="model-lab-load-status-slot" class="model-load-status-list"></div>
+                    </article>
+                    <article class="panel model-load-step-card model-load-step-card-wide">
+                        <div class="model-load-step-heading">
+                            <span class="model-load-step-kicker">Step 2</span>
+                            <h3>Finalize Columns</h3>
+                            <p>Review the prescribed column recommendations before continuing to the live training route.</p>
                         </div>
-                    </div>
-                    <div id="train-dataset-summary" class="summary-stack"></div>
-                </article>
-                <article class="panel stage-card stage-card-b">
-                    <div class="panel-header">
-                        <div>
-                            <span class="stage-index">B.</span>
-                            <h3>Feature Preview</h3>
-                            <p>Frontend-generated field profile based on the uploaded training dataset.</p>
+                        <div class="model-load-target-picker">
+                            <label class="model-load-target-field" for="train-target-column">
+                                <span>Target feature name</span>
+                                <select
+                                    id="train-target-column"
+                                    onchange="handleTrainingTargetChange(this.value)"
+                                    disabled
+                                >
+                                    <option value="">Select target column</option>
+                                </select>
+                            </label>
+                            <p id="train-target-column-note" class="field-hint">
+                                Upload a training CSV to choose which feature is the target.
+                            </p>
                         </div>
-                    </div>
-                    <div id="train-feature-preview" class="table-shell table-shell-medium"></div>
-                </article>
+                        <div id="model-lab-column-review-preview" class="table-shell table-shell-compact"></div>
+                    </article>
+                    <article class="panel model-load-step-card">
+                        <div class="model-load-step-heading">
+                            <span class="model-load-step-kicker">Step 3</span>
+                            <h3>Go To Training</h3>
+                            <p>Move to the run step after the dataset is staged and the column review is visible.</p>
+                        </div>
+                        <div id="model-lab-load-next-summary" class="summary-stack"></div>
+                        <div class="action-row">
+                            <button
+                                type="button"
+                                id="btn-proceed-model-run"
+                                class="primary-button is-disabled"
+                                onclick="showModelLabStep('run')"
+                                data-disabled-title="Upload a training dataset first."
+                                title="Upload a training dataset first."
+                                disabled
+                            >
+                                Open Run Training
+                            </button>
+                        </div>
+                    </article>
+                </div>
+                <div class="model-load-divider" aria-hidden="true">
+                    <span>Preview Workspace</span>
+                </div>
+                <div class="model-load-preview-stack">
+                    <article class="panel stage-card">
+                        <div class="panel-header">
+                            <div>
+                                <span class="stage-index">A.</span>
+                                <h3>Dataset Preview</h3>
+                                <p>The uploaded training dataset is rendered here exactly as returned by the backend upload route.</p>
+                            </div>
+                        </div>
+                        <div id="model-lab-load-preview-slot"></div>
+                    </article>
+                    <article class="panel stage-card">
+                        <div class="panel-header">
+                            <div>
+                                <span class="stage-index">B.</span>
+                                <h3>Feature Preview</h3>
+                                <p>Frontend-generated field profile based on the uploaded training dataset.</p>
+                            </div>
+                        </div>
+                        <div id="train-feature-preview" class="table-shell table-shell-medium"></div>
+                    </article>
+                    <article class="panel stage-card">
+                        <div class="panel-header">
+                            <div>
+                                <span class="stage-index">C.</span>
+                                <h3>Dataset Split &amp; Feature Preview Summary</h3>
+                                <p>Dataset profiling appears after upload. Training split details appear after a model run.</p>
+                            </div>
+                        </div>
+                        <div id="train-dataset-summary" class="summary-stack"></div>
+                    </article>
+                </div>
             </div>
         </div>
         <div id="model-step-run" class="model-step-view hidden">
@@ -535,6 +596,7 @@ async function uploadCSV(type) {
         if (type === "train") {
             UI_STATE.trainingRows = rows;
             UI_STATE.lastTrainingResponse = null;
+            UI_STATE.trainingColumnInclusion = {};
             renderTrainingDatasetProfile(rows);
         } else if (type === "score") {
             UI_STATE.scoringRows = rows;
@@ -569,10 +631,22 @@ async function uploadCSV(type) {
 }
 
 function getTrainingRequestBody() {
+    const profile = buildDatasetProfile(UI_STATE.trainingRows);
+    const selectedColumns = profile
+        ? profile.reviewRows
+            .filter(
+                (row) =>
+                    row.includeInTraining && row.columnName !== profile.targetColumn
+            )
+            .map((row) => row.columnName)
+        : [];
+
     return {
         intRandomState: toNumber("train-random-state", 0),
         intTopFeats: toNumber("train-top-feats", 20),
         fltF1: toNumber("train-f1-threshold", 1),
+        lisstrFeats: selectedColumns,
+        strFeatTarget: profile?.targetColumn || "",
     };
 }
 
@@ -681,11 +755,31 @@ function renderTrainingDatasetProfile(rows, datasetSplit = null) {
                 "Upload a training CSV to build the summary pane."
             )
         );
+        renderTrainingTargetSelector([], "");
+        renderTrainingColumnReview([]);
+        renderLoadStepReadiness(null);
         renderTrainingFeatureTable([]);
         return;
     }
 
+    renderTrainingTargetSelector(profile.availableColumns, profile.targetColumn);
+    renderTrainingColumnReview(profile.reviewRows);
+    renderLoadStepReadiness(profile);
     renderTrainingFeatureTable(profile.fields);
+
+    const classSplitPreview = buildTargetClassSplitSummary(records, profile.targetColumn);
+
+    if (classSplitPreview) {
+        summaryContainer.appendChild(buildTargetClassSplitCard(classSplitPreview));
+    } else {
+        summaryContainer.appendChild(
+            buildSummaryCard(
+                "Target class split",
+                "Unavailable",
+                "Choose a target feature in Step 2 to inspect its class distribution."
+            )
+        );
+    }
 
     summaryContainer.appendChild(
         buildSummaryCard("Rows loaded", profile.rowCount.toLocaleString(), "Records currently staged for training.")
@@ -702,38 +796,12 @@ function renderTrainingDatasetProfile(rows, datasetSplit = null) {
     summaryContainer.appendChild(
         buildSummaryCard(
             "Target column",
-            profile.targetIncluded ? "Exited" : "Missing",
+            profile.targetIncluded ? humanizeLabel(profile.targetColumn) : "Not selected",
             profile.targetIncluded
-                ? "The expected churn label is available in the uploaded training set."
-                : "The expected churn label was not found in the uploaded training set."
+                ? "Selected in Step 2 as the target feature for the column review."
+                : "Choose a target feature in Step 2 to label it in the review panes."
         )
     );
-
-    if (datasetSplit) {
-        const splitRow = normalizeTableData(datasetSplit)[0] || {};
-        const trainTotal =
-            (Number(splitRow.intNegativeTraining) || 0) +
-            (Number(splitRow.intPositiveTraining) || 0);
-        const testTotal =
-            (Number(splitRow.intNegativeTesting) || 0) +
-            (Number(splitRow.intPositiveTesting) || 0);
-
-        summaryContainer.appendChild(
-            buildSummaryCard(
-                "Dataset split",
-                `${trainTotal.toLocaleString()} / ${testTotal.toLocaleString()}`,
-                `Train positives ${Number(splitRow.intPositiveTraining || 0).toLocaleString()} and test positives ${Number(splitRow.intPositiveTesting || 0).toLocaleString()}.`
-            )
-        );
-    } else {
-        summaryContainer.appendChild(
-            buildSummaryCard(
-                "Dataset split",
-                "Pending training",
-                "Run the training step to populate the backend train/test split summary."
-            )
-        );
-    }
 }
 
 function renderTrainingFeatureTable(fields) {
@@ -750,6 +818,202 @@ function renderTrainingFeatureTable(fields) {
     displayTable(rows, "train-feature-preview", "No field profile available.");
 }
 
+function renderTrainingTargetSelector(columns, selectedTarget) {
+    const select = document.getElementById("train-target-column"); 
+    const note = document.getElementById("train-target-column-note");
+    const options = normalizeTableData(columns);
+
+    if (!select) {
+        return;
+    }
+
+    select.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select target column";
+    select.appendChild(placeholder);
+
+    options.forEach((columnName) => {
+        const option = document.createElement("option");
+        option.value = columnName;
+        option.textContent = humanizeLabel(columnName);
+        select.appendChild(option);
+    });
+
+    select.disabled = options.length === 0;
+    select.value = selectedTarget && options.includes(selectedTarget) ? selectedTarget : "";
+
+    if (!note) {
+        return;
+    }
+
+    if (!options.length) {
+        note.textContent =
+            "Upload a training CSV to choose which feature is the target.";
+        return;
+    }
+
+    note.textContent =
+        "Choose the target feature name here so Step 2 can label it in the review table.";
+}
+
+function renderTrainingColumnReview(rows) {
+    const container = document.getElementById("model-lab-column-review-preview");
+    const reviewRows = normalizeTableData(rows);
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!reviewRows.length) {
+        container.innerHTML =
+            '<p class="empty-state">Upload a training CSV to generate the prescribed column review.</p>';
+        return;
+    }
+
+    const tableScroll = document.createElement("div");
+    tableScroll.className = "table-scroll column-review-scroll";
+
+    const table = document.createElement("table");
+    table.className = "column-review-table";
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    ["Feature Name", "Status", "Why", "Include In Training?"].forEach((label) => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    reviewRows.forEach((row) => {
+        const tr = document.createElement("tr");
+
+        const featureCell = document.createElement("td");
+        featureCell.textContent = row.featureName;
+
+        const statusCell = document.createElement("td");
+        statusCell.innerHTML = `
+            <span class="column-review-status is-${escapeHtml(row.tone)}">
+                ${escapeHtml(row.status)}
+            </span>
+        `;
+
+        const whyCell = document.createElement("td");
+        whyCell.textContent = row.why;
+
+        const includeCell = document.createElement("td");
+        includeCell.className = "column-review-include"; 
+        const includeInput = document.createElement("input");
+        includeInput.type = "checkbox";
+        includeInput.checked = Boolean(row.includeInTraining);
+        includeInput.disabled = Boolean(row.isLocked);
+        includeInput.setAttribute(
+            "aria-label",
+            `Include ${row.featureName} in training`
+        );
+        includeInput.addEventListener("change", (event) => {
+            handleTrainingIncludeToggle(row.columnName, event.target.checked);
+        });
+        includeCell.appendChild(includeInput);
+
+        tr.append(featureCell, statusCell, whyCell, includeCell);
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    tableScroll.appendChild(table);
+    container.appendChild(tableScroll);
+
+    requestAnimationFrame(() => {
+        lockTableViewport(
+            tableScroll,
+            table,
+            Math.min(COLUMN_REVIEW_VISIBLE_ROWS, reviewRows.length)
+        );
+    });
+}
+
+function handleTrainingTargetChange(value) {
+    const previousTarget = UI_STATE.trainingTargetColumn;
+    if (previousTarget && previousTarget !== value) {
+        delete UI_STATE.trainingColumnInclusion[previousTarget];
+    }
+
+    UI_STATE.trainingTargetColumn = value || null;
+    renderTrainingDatasetProfile(
+        UI_STATE.trainingRows,
+        UI_STATE.lastTrainingResponse?.objDatasetSplit || null
+    );
+}
+
+function handleTrainingIncludeToggle(columnName, includeInTraining) {
+    if (!columnName) {
+        return;
+    }
+
+    if (UI_STATE.trainingTargetColumn && columnName === UI_STATE.trainingTargetColumn) {
+        UI_STATE.trainingColumnInclusion[columnName] = true;
+    } else {
+        UI_STATE.trainingColumnInclusion[columnName] = Boolean(includeInTraining);
+    }
+
+    renderTrainingDatasetProfile(
+        UI_STATE.trainingRows,
+        UI_STATE.lastTrainingResponse?.objDatasetSplit || null
+    );
+}
+
+function renderLoadStepReadiness(profile) {
+    const container = document.getElementById("model-lab-load-next-summary");
+    const hasProfile = Boolean(profile);
+
+    setButtonEnabled("btn-proceed-model-run", hasProfile);
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!hasProfile) {
+        container.appendChild(
+            buildSummaryCard(
+                "Training step",
+                "Awaiting upload",
+                "Load a training CSV first to unlock the run step."
+            )
+        );
+        return;
+    }
+
+    const includedCount = profile.reviewRows.filter((row) => row.includeInTraining).length;
+    const excludedCount = profile.reviewRows.length - includedCount;
+
+    container.appendChild(
+        buildSummaryCard(
+            "Dataset",
+            `${profile.rowCount.toLocaleString()} row(s)`
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Target feature",
+            profile.targetIncluded ? humanizeLabel(profile.targetColumn) : "Not selected",
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Column review",
+            `${includedCount.toLocaleString()} keep / ${excludedCount.toLocaleString()} exclude`,
+        )
+    );
+}
+
 function buildDatasetProfile(rows) {
     const records = normalizeTableData(rows);
     if (!records.length) {
@@ -757,6 +1021,7 @@ function buildDatasetProfile(rows) {
     }
 
     const columns = Object.keys(records[0]);
+    const targetColumn = resolveTrainingTargetColumn(columns);
     const fieldRows = columns.map((columnName) => {
         const values = records
             .map((row) => row[columnName])
@@ -768,7 +1033,7 @@ function buildDatasetProfile(rows) {
 
         return {
             Field: humanizeLabel(columnName),
-            Role: columnName === "Exited" ? "Target" : "Feature",
+            Role: columnName === targetColumn ? "Target" : "Feature",
             Type: columnType,
             Filled: `${filledPercent}%`,
             UniqueValues: uniqueCount.toLocaleString(),
@@ -777,15 +1042,227 @@ function buildDatasetProfile(rows) {
     });
 
     const numericCount = fieldRows.filter((row) => row.Type !== "Categorical").length;
+    const reviewRows = columns.map((columnName) =>
+        buildTrainingColumnReviewRow(
+            columnName,
+            records
+                .map((row) => row[columnName])
+                .filter((value) => value !== null && value !== undefined && value !== ""),
+            records.length,
+            targetColumn
+        )
+    );
 
     return {
         rowCount: records.length,
         fieldCount: columns.length,
         numericCount,
         categoricalCount: columns.length - numericCount,
-        targetIncluded: columns.includes("Exited"),
+        targetIncluded: Boolean(targetColumn && columns.includes(targetColumn)),
+        targetColumn,
+        availableColumns: columns,
         fields: fieldRows,
+        reviewRows,
     };
+}
+
+function buildTargetClassSplitSummary(rows, targetColumn) {
+    const records = normalizeTableData(rows);
+
+    if (!records.length || !targetColumn) {
+        return null;
+    }
+
+    const classCounts = new Map();
+    let missingCount = 0;
+
+    records.forEach((row) => {
+        const value = row[targetColumn];
+        if (value === null || value === undefined || value === "") {
+            missingCount += 1;
+            return;
+        }
+
+        const label = formatTableValue(value);
+        classCounts.set(label, (classCounts.get(label) || 0) + 1);
+    });
+
+    if (!classCounts.size) {
+        return null;
+    }
+
+    const sortedClassCounts = [...classCounts.entries()].sort((left, right) => {
+        const countDelta = right[1] - left[1];
+        if (countDelta !== 0) {
+            return countDelta;
+        }
+        return left[0].localeCompare(right[0]);
+    });
+
+    return {
+        targetLabel: humanizeLabel(targetColumn),
+        populatedCount: [...classCounts.values()].reduce((total, count) => total + count, 0),
+        missingCount,
+        classCount: sortedClassCounts.length,
+        rows: sortedClassCounts.map(([label, count]) => ({
+            label,
+            count,
+        })),
+    };
+}
+
+function buildTargetClassSplitCard(summary) {
+    const card = document.createElement("div");
+    card.className = "summary-card summary-card-class-split";
+
+    const kicker = document.createElement("span");
+    kicker.className = "kicker";
+    kicker.textContent = "Target class split";
+
+    const title = document.createElement("strong");
+    title.textContent = summary.targetLabel;
+
+    const description = document.createElement("p");
+    description.textContent = `${summary.classCount.toLocaleString()} class(es) across ${summary.populatedCount.toLocaleString()} populated row(s).`;
+
+    const list = document.createElement("div");
+    list.className = "class-split-list";
+
+    summary.rows.slice(0, 4).forEach((row) => {
+        const percent = summary.populatedCount > 0 ? row.count / summary.populatedCount : 0;
+        const rowElement = document.createElement("div");
+        rowElement.className = "class-split-row";
+        rowElement.innerHTML = `
+            <div class="class-split-row-top">
+                <span class="class-split-label">${escapeHtml(String(row.label))}</span>
+                <span class="class-split-stat">${row.count.toLocaleString()} row(s) | ${formatPercentage(percent)}</span>
+            </div>
+            <div class="class-split-bar">
+                <span style="width:${Math.max(percent * 100, percent > 0 ? 8 : 0).toFixed(1)}%"></span>
+            </div>
+        `;
+        list.appendChild(rowElement);
+    });
+
+    card.append(kicker, title, description, list);
+
+    if (summary.classCount > 4) {
+        const moreNote = document.createElement("p");
+        moreNote.className = "class-split-note";
+        moreNote.textContent = `+${(summary.classCount - 4).toLocaleString()} more class(es) not shown in this preview.`;
+        card.appendChild(moreNote);
+    }
+
+    if (summary.missingCount > 0) {
+        const missingNote = document.createElement("p");
+        missingNote.className = "class-split-note";
+        missingNote.textContent = `${summary.missingCount.toLocaleString()} row(s) are blank for this target.`;
+        card.appendChild(missingNote);
+    }
+
+    return card;
+}
+
+function resolveTrainingTargetColumn(columns) {
+    const availableColumns = normalizeTableData(columns).filter((columnName) =>
+        typeof columnName === "string" && columnName.length > 0
+    );
+
+    if (!availableColumns.length) {
+        UI_STATE.trainingTargetColumn = null;
+        return null;
+    }
+
+    if (
+        UI_STATE.trainingTargetColumn &&
+        availableColumns.includes(UI_STATE.trainingTargetColumn)
+    ) {
+        return UI_STATE.trainingTargetColumn;
+    }
+
+    if (availableColumns.includes("Exited")) {
+        UI_STATE.trainingTargetColumn = "Exited";
+        return UI_STATE.trainingTargetColumn;
+    }
+
+    UI_STATE.trainingTargetColumn = null;
+    return null;
+}
+
+function buildTrainingColumnReviewRow(columnName, values, rowCount, targetColumn = null) {
+    const normalizedName = String(columnName || "").toLowerCase();
+    const normalizedTarget = String(targetColumn || "").toLowerCase();
+    const uniqueCount = new Set(values.map((value) => String(value))).size;
+    const fillRate = rowCount > 0 ? values.length / rowCount : 0;
+    const columnType = detectColumnType(values);
+    const isTargetColumn = Boolean(normalizedTarget && normalizedName === normalizedTarget);
+
+    let status = "OK";
+    let why = "Column is suitable for the current training workflow.";
+    let includeInTraining = true;
+    let tone = "success";
+
+    if (isTargetColumn) {
+        status = "Target";
+        why = "Chosen in Step 2 as the target feature.";
+        includeInTraining = true;
+        tone = "success";
+    } else if (["customerid", "rownumber", "surname", "email"].includes(normalizedName)) {
+        status = "Drop";
+        why = "Identifier or personal field with weak modelling value.";
+        includeInTraining = false;
+        tone = "danger";
+    } else if (values.length === 0) {
+        status = "Review";
+        why = "Column is empty in the uploaded dataset preview.";
+        includeInTraining = false;
+        tone = "warning";
+    } else if (
+        columnType === "Categorical" &&
+        uniqueCount >= Math.max(50, Math.round(rowCount * 0.6))
+    ) {
+        status = "Drop";
+        why = "High-cardinality categorical values are likely identifier-like.";
+        includeInTraining = false;
+        tone = "danger";
+    } else if (fillRate < 0.6) {
+        status = "Review";
+        why = "Lower fill rate than the rest of the staged dataset.";
+        includeInTraining = true;
+        tone = "warning";
+    }
+
+    includeInTraining = resolveTrainingColumnInclusion(
+        columnName,
+        includeInTraining,
+        targetColumn
+    );
+
+    return {
+        columnName,
+        featureName: humanizeLabel(columnName),
+        status,
+        why,
+        includeInTraining,
+        tone,
+        isLocked: isTargetColumn,
+    };
+}
+
+function resolveTrainingColumnInclusion(
+    columnName,
+    defaultIncludeInTraining,
+    targetColumn = null
+) {
+    if (targetColumn && columnName === targetColumn) {
+        return true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(UI_STATE.trainingColumnInclusion, columnName)) {
+        return Boolean(UI_STATE.trainingColumnInclusion[columnName]);
+    }
+
+    return Boolean(defaultIncludeInTraining);
 }
 
 function detectColumnType(values) {
@@ -1400,14 +1877,18 @@ function renderEmailPlaceholderState(message) {
     `;
 }
 
-function buildSummaryCard(label, value, description) {
+function buildSummaryCard(label, value, description = null) {
     const card = document.createElement("div");
     card.className = "summary-card";
     card.innerHTML = `
         <span class="kicker">${escapeHtml(label)}</span>
         <strong>${escapeHtml(String(value))}</strong>
-        <p>${escapeHtml(description)}</p>
     `;
+
+    if (description){
+        card.innerHTML += `<p>${escapeHtml(description)}</p>`;
+    }
+
     return card;
 }
 
