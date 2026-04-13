@@ -1115,9 +1115,10 @@ body::before,
 
 .model-load-step-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.55fr) minmax(0, 1.05fr);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) minmax(0, 0.9fr);
     gap: 1rem;
 }
+
 
 .model-load-step-card {
     padding: 1rem;

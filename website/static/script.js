@@ -151,9 +151,6 @@ function buildModelLabWorkspace() {
                                 Upload a training CSV to choose which feature is the target.
                             </p>
                         </div>
-                        <p class="model-load-inline-note">
-                            These recommendations are editable in the current UI. The backend still trains on the uploaded CSV as-is.
-                        </p>
                         <div id="model-lab-column-review-preview" class="table-shell table-shell-compact"></div>
                     </article>
                     <article class="panel model-load-step-card">
@@ -869,12 +866,6 @@ function renderTrainingTargetSelector(columns, selectedTarget) {
         return;
     }
 
-    if (select.value) {
-        note.textContent =
-            "This selection updates the Step 2 review and preview labels only. The current backend route still expects its existing target handling.";
-        return;
-    }
-
     note.textContent =
         "Choose the target feature name here so Step 2 can label it in the review table.";
 }
@@ -1017,24 +1008,19 @@ function renderLoadStepReadiness(profile) {
     container.appendChild(
         buildSummaryCard(
             "Dataset",
-            `${profile.rowCount.toLocaleString()} row(s)`,
-            "The current training file is staged in the preview workspace."
+            `${profile.rowCount.toLocaleString()} row(s)`
         )
     );
     container.appendChild(
         buildSummaryCard(
             "Target feature",
             profile.targetIncluded ? humanizeLabel(profile.targetColumn) : "Not selected",
-            profile.targetIncluded
-                ? "Chosen in Step 2 for the column review."
-                : "Pick the target feature in Step 2 if you want it labeled before training."
         )
     );
     container.appendChild(
         buildSummaryCard(
             "Column review",
             `${includedCount.toLocaleString()} keep / ${excludedCount.toLocaleString()} exclude`,
-            "These recommendations reflect the prescribed load-step checklist."
         )
     );
 }
@@ -1805,14 +1791,18 @@ function renderEmailPlaceholderState(message) {
     `;
 }
 
-function buildSummaryCard(label, value, description) {
+function buildSummaryCard(label, value, description = null) {
     const card = document.createElement("div");
     card.className = "summary-card";
     card.innerHTML = `
         <span class="kicker">${escapeHtml(label)}</span>
         <strong>${escapeHtml(String(value))}</strong>
-        <p>${escapeHtml(description)}</p>
     `;
+
+    if (description){
+        card.innerHTML += `<p>${escapeHtml(description)}</p>`;
+    }
+
     return card;
 }
 
