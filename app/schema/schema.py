@@ -21,6 +21,8 @@ class DTO_Request_RunTraining(BaseModel):
     intRandomState: int = 0
     intTopFeats: int = 20
     fltF1: float = 1
+    lisstrFeats: list[str]
+    strFeatTarget: str 
 
 class DTO_DatasetSplit(BaseModel):
     intNegativeTesting: int
