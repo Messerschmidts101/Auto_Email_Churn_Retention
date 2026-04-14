@@ -30,7 +30,6 @@ router = APIRouter(
     tags=["train"],
 )
 
-
 def _validate_required_columns(
     tblInput: pd.DataFrame,
     lisstr_required_columns: list[str],

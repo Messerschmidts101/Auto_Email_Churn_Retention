@@ -142,19 +142,19 @@ def get_top_feats(X, pipeModel: Pipeline):
     pipeEstimator   = pipeModel.named_steps["model"]
 
     # 2. Transform input
-    X_t = pipeTransformer.transform(X)
+    X_train = pipeTransformer.transform(X)
 
-    if isinstance(X_t, pd.DataFrame):
-        if len(X_t) > 1000:
-            X_t = X_t.sample(n=1000, random_state=42)
-    elif X_t.shape[0] > 1000:
+    if isinstance(X_train, pd.DataFrame):
+        if len(X_train) > 1000:
+            X_train = X_train.sample(n=1000, random_state=42)
+    elif X_train.shape[0] > 1000:
         objRandom = np.random.default_rng(42)
-        npSampleIndex = objRandom.choice(X_t.shape[0], size=1000, replace=False)
-        X_t = X_t[npSampleIndex]
+        npSampleIndex = objRandom.choice(X_train.shape[0], size=1000, replace=False)
+        X_train = X_train[npSampleIndex]
 
     # 3. Get feature names from the transformed frame when available.
-    if isinstance(X_t, pd.DataFrame):
-        feature_names = [str(strFeatureName) for strFeatureName in X_t.columns]
+    if isinstance(X_train, pd.DataFrame):
+        feature_names = [str(strFeatureName) for strFeatureName in X_train.columns]
     else:
         try:
             feature_names = [
@@ -162,11 +162,11 @@ def get_top_feats(X, pipeModel: Pipeline):
                 for strFeatureName in pipeTransformer.get_feature_names_out()
             ]
         except Exception:
-            feature_names = [f"feat_{i}" for i in range(X_t.shape[1])]
+            feature_names = [f"feat_{i}" for i in range(X_train.shape[1])]
 
     # 4. SHAP
-    objExplainer = shap.Explainer(pipeEstimator, X_t)
-    shap_values = objExplainer(X_t)
+    objExplainer = shap.Explainer(pipeEstimator, X_train)
+    shap_values = objExplainer(X_train)
 
     # 5. Handle shape (classifier vs regressor)
     values = shap_values.values
@@ -183,11 +183,19 @@ def get_top_feats(X, pipeModel: Pipeline):
         reverse=True
     ))
 
-def get_all_evals(X,y,pipeModel):
+def get_all_evals(
+        X_trainrain,
+        X_trainest, 
+        y_train, 
+        y_test,
+        pipeModel):
     """
     # Inputs
-    1. `X`: Dataframe. Feature set.
-    2. `y`: Dataframe. Target set.
+
+        X_trainrain,
+        X_trainest, 
+        y_train, 
+        y_test,
     3. `pipeModel`: Pipeline. A trained pipeline containing both transformers and estimators.
 
     # Process
@@ -217,22 +225,16 @@ def get_all_evals(X,y,pipeModel):
     """
 
     # Step 1: Get splits
-    XTrain, XTest, yTrain, yTest = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        shuffle=False,
-    )
 
     # Step 2: Get Top Feats
     dicFeats = get_top_feats(
-        X = X,
+        X = X_trainrain,
         pipeModel = pipeModel
     )
 
     # Step 3: Get Evals
-    npYTest = np.asarray(yTest, dtype=int)
-    npYPred = np.asarray(pipeModel.predict(XTest))
+    npYTest = np.asarray(y_test, dtype=int)
+    npYPred = np.asarray(pipeModel.predict(X_trainest))
 
     if npYPred.dtype.kind not in {"i", "u", "b"}:
         npYPred = (npYPred >= 0.5).astype(int)
@@ -246,8 +248,8 @@ def get_all_evals(X,y,pipeModel):
     )
 
     dicResults = {
-        "intCountTrainPositiveClass": int(np.count_nonzero(np.asarray(yTrain, dtype=int) == 1)),
-        "intCountTrainNegativeClass": int(np.count_nonzero(np.asarray(yTrain, dtype=int) == 0)),
+        "intCountTrainPositiveClass": int(np.count_nonzero(np.asarray(y_train, dtype=int) == 1)),
+        "intCountTrainNegativeClass": int(np.count_nonzero(np.asarray(y_train, dtype=int) == 0)),
         "intCountTestPositiveClass": int(np.count_nonzero(npYTest == 1)),
         "intCountTestNegativeClass": int(np.count_nonzero(npYTest == 0)),
         "fltAccuracy": float(accuracy_score(npYTest, npYPred)),

@@ -19,11 +19,15 @@ class DTO_Respond_UploadDataFrame(BaseModel):
 
 class DTO_Request_RunTraining(BaseModel):
     intRandomState: int = 0
-    intTopFeats: int = 20
-    fltF1: float = 1
     lisstrFeats: list[str]
     strFeatTarget: str 
-
+    fltTTSplit: float               #TODO: apply this
+    intCrossFold:int                #TODO: apply this
+    intPrimaryMetric:int            #TODO: apply this
+    intTopFeats:int                 #TODO: apply this
+    #intTopFeats: int = 20
+    #fltF1: float = 1
+    
 class DTO_DatasetSplit(BaseModel):
     intNegativeTesting: int
     intNegativeTraining: int
