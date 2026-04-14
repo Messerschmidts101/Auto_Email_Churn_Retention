@@ -213,63 +213,99 @@ function buildModelLabWorkspace() {
             </div>
         </div>
         <div id="model-step-run" class="model-step-view hidden">
-            <div class="tuning-grid">
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 1: Parameter Tuning</h3>
-                    <p class="tuning-title">Random Forest</p>
-                    <p>The current backend does not expose model-family selection or Random Forest hyperparameters yet.</p>
-                </article>
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 2: Parameter Tuning</h3>
-                    <p class="tuning-title">Logistic Regression</p>
-                    <p>This model option is represented in the UI, but there is no route for training or tuning it today.</p>
-                </article>
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 3: Parameter Tuning</h3>
-                    <p class="tuning-title">Linear Regression</p>
-                    <p>Kept as a placeholder panel until the backend exposes additional training pipelines.</p>
-                </article>
-            </div>
-            <article class="panel stage-card">
-                <div class="panel-header panel-header-stack">
-                    <div>
-                        <span class="stage-index">A.</span>
-                        <h3>Model Training Preview</h3>
-                        <p>This view runs the current training endpoint and stages the response in one operational panel.</p>
-                    </div>
-                    <div class="action-row">
-                        <button type="button" class="secondary-button" onclick="showModelLabStep('result')">Open Training Result</button>
-                    </div>
-                </div>
-                <div class="training-preview-layout">
-                    <div class="training-controls">
-                        <div class="info-banner">The current backend route runs one stored pipeline. The tuning tiles above remain placeholders until separate model routes exist.</div>
-                        <div id="model-lab-run-controls-slot" class="inline-stack"></div>
-                    </div>
-                    <div class="training-preview-panel">
-                        <div class="result-detail-panel">
-                            <h4>Run Snapshot</h4>
-                            <div id="model-lab-run-metrics-slot"></div>
+            <div class="model-run-workspace">
+                <div class="model-run-top-grid">
+                    <article class="panel model-run-card model-run-card-settings">
+                        <div class="model-run-card-header">
+                            <h3>Step 1: General Setting</h3>
                         </div>
-                        <div class="result-detail-panel">
-                            <h4>Execution Notes</h4>
-                            <div class="placeholder-grid placeholder-grid-compact">
-                                <div class="placeholder-card">
-                                    <strong>Live backend route</strong>
-                                    <p>POST /train/model remains the source of truth for this panel.</p>
-                                </div>
-                                <div class="placeholder-card">
-                                    <strong>Planned later</strong>
-                                    <p>Multi-model comparisons and algorithm-specific tuning stay placeholder-only for now.</p>
-                                </div>
+                        <ol class="model-run-settings-list" type="a">
+                            <li>Random State</li>
+                            <li>Train/Test Split Ratio</li>
+                            <li>Cross Validation (k-fold)</li>
+                            <li>Scoring Metric (target optimization)</li>
+                            <li>Top Feat Count Scoring</li>
+                        </ol>
+                        <div class="model-run-settings-note">
+                            Live controls from the current backend route stay here while the
+                            remaining items are UI-only for now.
+                        </div>
+                        <div id="model-lab-run-controls-slot" class="model-run-settings-controls"></div>
+                    </article>
+
+                    <article class="panel model-run-card model-run-card-training">
+                        <div class="model-run-training-header">
+                            <div>
+                                <h3>Step 2: Run Training</h3>
+                            </div>
+                            <div id="model-lab-run-action-slot" class="action-row"></div>
+                        </div>
+
+                        <div class="tuning-grid">
+                            <article class="panel tuning-card">
+                                <span class="placeholder-badge">Backend placeholder</span>
+                                <h3>Optional Step 1: Parameter Tuning</h3>
+                                <p class="tuning-title">Random Forest</p>
+                                <p>The current backend does not expose model-family selection or Random Forest hyperparameters yet.</p>
+                            </article>
+                            <article class="panel tuning-card">
+                                <span class="placeholder-badge">Backend placeholder</span>
+                                <h3>Optional Step 2: Parameter Tuning</h3>
+                                <p class="tuning-title">Logistic Regression</p>
+                                <p>This model option is represented in the UI, but there is no route for training or tuning it today.</p>
+                            </article>
+                            <article class="panel tuning-card">
+                                <span class="placeholder-badge">Backend placeholder</span>
+                                <h3>Optional Step 3: Parameter Tuning</h3>
+                                <p class="tuning-title">Linear Regression</p>
+                                <p>Kept as a placeholder panel until the backend exposes additional training pipelines.</p>
+                            </article>
+                        </div>
+
+                        <div class="model-run-training-footer">
+                            <div class="info-banner">
+                                The current backend route runs one stored pipeline. These model
+                                family panels remain placeholders until separate training routes
+                                exist.
+                            </div>
+                            <div id="model-lab-run-runtime-slot" class="model-run-runtime-stack"></div>
+                            <div class="result-detail-panel">
+                                <h4>Run Snapshot</h4>
+                                <div id="model-lab-run-metrics-slot"></div>
                             </div>
                         </div>
-                    </div>
+                    </article>
+
+                    <article class="panel model-run-card model-run-card-results">
+                        <div class="model-run-card-header">
+                            <h3>Step 3: Go To View Results</h3>
+                        </div>
+                        <p class="model-run-result-copy">
+                            Open the detailed training result screen once the run is complete.
+                        </p>
+                        <div class="action-row model-run-result-actions">
+                            <button type="button" class="secondary-button" onclick="showModelLabStep('result')">
+                                View Results
+                            </button>
+                        </div>
+                    </article>
                 </div>
-            </article>
+
+                <div class="model-run-divider" aria-hidden="true">
+                    <span>Divider</span>
+                </div>
+
+                <article class="panel stage-card model-run-leaderboard-card">
+                    <div class="panel-header">
+                        <div>
+                            <span class="stage-index">A.</span>
+                            <h3>All Models Training Leaderboard</h3>
+                            <p>Historical model runs rank here for quick comparison.</p>
+                        </div>
+                    </div>
+                    <div id="model-lab-run-leaderboard" class="table-shell table-shell-large"></div>
+                </article>
+            </div>
         </div>
         <div id="model-step-result" class="model-step-view hidden">
             <div class="model-grid-result">
@@ -322,9 +358,9 @@ function buildModelLabWorkspace() {
     moveNodeToSlot(document.getElementById("train-upload-status"), "model-lab-load-status-slot");
     moveNodeToSlot(document.getElementById("uploaded-train-preview"), "model-lab-load-preview-slot");
     moveNodeToSlot(document.querySelector("#train-section .input-grid"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.querySelector("#train-section .workflow-grid .step-card:nth-of-type(2) .action-row"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.getElementById("time-details"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.getElementById("progress-bar-container-train"), "model-lab-run-controls-slot");
+    moveNodeToSlot(document.querySelector("#train-section .workflow-grid .step-card:nth-of-type(2) .action-row"), "model-lab-run-action-slot");
+    moveNodeToSlot(document.getElementById("time-details"), "model-lab-run-runtime-slot");
+    moveNodeToSlot(document.getElementById("progress-bar-container-train"), "model-lab-run-runtime-slot");
     moveNodeToSlot(document.getElementById("training-metric-cards"), "model-lab-run-metrics-slot");
     moveNodeToSlot(document.getElementById("btn-proceed-inference"), "model-lab-result-action-slot");
     moveNodeToSlot(document.getElementById("training-details-preview"), "model-lab-result-split-slot");
@@ -710,6 +746,7 @@ async function trainModel() {
 
         renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
         renderLatestTrainingResultSummary(data);
+        renderTrainingLeaderboard(UI_STATE.modelHistoryRows);
         await loadModelHistory(true);
         setButtonEnabled("btn-proceed-inference", true);
         setStatusMessage(
@@ -1299,6 +1336,7 @@ function renderTrainingResultPlaceholders() {
     renderHistoricalModelsPlaceholder(
         "No additional historical models are available yet."
     );
+    renderTrainingLeaderboard([]);
 }
 
 function renderLatestTrainingResultSummary(data) {
@@ -1360,6 +1398,7 @@ async function loadModelHistory(force = false) {
     } catch (error) {
         UI_STATE.modelHistoryRows = [];
         UI_STATE.modelHistoryLoaded = true;
+        renderTrainingLeaderboard([]);
         renderHistoricalModelsPlaceholder(
             "Historical model data is unavailable until the backend stores at least one run."
         );
@@ -1374,6 +1413,7 @@ async function loadModelHistory(force = false) {
 
 function renderHistoricalTrainingResults(rows) {
     const records = normalizeTableData(rows);
+    renderTrainingLeaderboard(records);
 
     if (!records.length) {
         if (!UI_STATE.lastTrainingResponse) {
@@ -1409,20 +1449,7 @@ function renderHistoricalTrainingResults(rows) {
 }
 
 function selectBestModelRecord(rows) {
-    return [...normalizeTableData(rows)].sort((left, right) => {
-        const f1Delta = (Number(right.F1) || 0) - (Number(left.F1) || 0);
-        if (f1Delta !== 0) {
-            return f1Delta;
-        }
-
-        const accuracyDelta =
-            (Number(right.Accuracy) || 0) - (Number(left.Accuracy) || 0);
-        if (accuracyDelta !== 0) {
-            return accuracyDelta;
-        }
-
-        return new Date(right.meta_DateCreated || 0) - new Date(left.meta_DateCreated || 0);
-    })[0];
+    return sortModelRecords(rows)[0];
 }
 
 function renderBestModelFromHistory(row, totalRuns) {
@@ -1520,6 +1547,159 @@ function renderHistoricalModelsPlaceholder(message) {
     }
 
     container.innerHTML = `<p class="empty-state">${escapeHtml(message)}</p>`;
+}
+
+function renderTrainingLeaderboard(rows) {
+    const container = document.getElementById("model-lab-run-leaderboard");
+    if (!container) {
+        return;
+    }
+
+    const records = sortModelRecords(rows);
+    const mappedRows = records.length
+        ? records.map((row, index) => ({
+            Rank: index + 1,
+            Model: resolveLeaderboardModelName(row),
+            F1: formatLeaderboardMetricValue("F1", firstDefinedValue(row, ["F1", "fltF1"])),
+            Accuracy: formatLeaderboardMetricValue(
+                "Accuracy",
+                firstDefinedValue(row, ["Accuracy", "fltAccuracy"])
+            ),
+            Precision: formatLeaderboardMetricValue(
+                "Precision",
+                firstDefinedValue(row, ["Precision", "fltPrecision"])
+            ),
+            Recall: formatLeaderboardMetricValue(
+                "Recall",
+                firstDefinedValue(row, ["Recall", "fltRecall"])
+            ),
+            ModelParams: resolveLeaderboardModelParams(row),
+        }))
+        : buildTrainingLeaderboardFallbackRows();
+
+    displayTable(mappedRows, "model-lab-run-leaderboard", "No training runs available yet.");
+}
+
+function buildTrainingLeaderboardFallbackRows() {
+    const latestMetrics = normalizeTableData(UI_STATE.lastTrainingResponse?.objMetrics)[0];
+
+    if (latestMetrics) {
+        return [
+            {
+                Rank: 1,
+                Model: "Latest run",
+                F1: formatLeaderboardMetricValue("fltF1", latestMetrics.fltF1),
+                Accuracy: formatLeaderboardMetricValue("fltAccuracy", latestMetrics.fltAccuracy),
+                Precision: formatLeaderboardMetricValue(
+                    "fltPrecision",
+                    latestMetrics.fltPrecision
+                ),
+                Recall: formatLeaderboardMetricValue("fltRecall", latestMetrics.fltRecall),
+                ModelParams: buildLiveTrainingParamsLabel(),
+            },
+        ];
+    }
+
+    return Array.from({ length: 3 }, (_, index) => ({
+        Rank: index + 1,
+        Model: " ",
+        F1: " ",
+        Accuracy: " ",
+        Precision: " ",
+        Recall: " ",
+        ModelParams: " ",
+    }));
+}
+
+function buildLiveTrainingParamsLabel() {
+    const params = [];
+    const randomState = document.getElementById("train-random-state")?.value;
+    const topFeatures = document.getElementById("train-top-feats")?.value;
+    const f1Target = document.getElementById("train-f1-threshold")?.value;
+
+    if (randomState) {
+        params.push(`Random=${randomState}`);
+    }
+    if (topFeatures) {
+        params.push(`TopFeats=${topFeatures}`);
+    }
+    if (f1Target) {
+        params.push(`F1Target=${f1Target}`);
+    }
+
+    return params.join(" | ") || "Current backend pipeline";
+}
+
+function formatLeaderboardMetricValue(key, value) {
+    if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+        return formatSummaryValue(key, Number(value));
+    }
+
+    return formatSummaryValue(key, value);
+}
+
+function resolveLeaderboardModelName(row) {
+    return (
+        firstDefinedValue(row, [
+            "Model",
+            "ModelName",
+            "Algorithm",
+            "ModelType",
+            "ModelFamily",
+            "Estimator",
+            "Name",
+        ]) || "Current backend pipeline"
+    );
+}
+
+function resolveLeaderboardModelParams(row) {
+    const value = firstDefinedValue(row, [
+        "ModelParams",
+        "Params",
+        "ModelParameters",
+        "Hyperparameters",
+        "HyperParameters",
+        "Parameters",
+    ]);
+
+    if (value === null || value === undefined || value === "") {
+        return "Backend-defined";
+    }
+
+    if (typeof value === "object") {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+}
+
+function firstDefinedValue(row, keys) {
+    for (const key of keys) {
+        if (row && row[key] !== undefined && row[key] !== null && row[key] !== "") {
+            return row[key];
+        }
+    }
+    return null;
+}
+
+function sortModelRecords(rows) {
+    return [...normalizeTableData(rows)].sort((left, right) => {
+        const f1Delta =
+            (Number(firstDefinedValue(right, ["F1", "fltF1"])) || 0) -
+            (Number(firstDefinedValue(left, ["F1", "fltF1"])) || 0);
+        if (f1Delta !== 0) {
+            return f1Delta;
+        }
+
+        const accuracyDelta =
+            (Number(firstDefinedValue(right, ["Accuracy", "fltAccuracy"])) || 0) -
+            (Number(firstDefinedValue(left, ["Accuracy", "fltAccuracy"])) || 0);
+        if (accuracyDelta !== 0) {
+            return accuracyDelta;
+        }
+
+        return new Date(right.meta_DateCreated || 0) - new Date(left.meta_DateCreated || 0);
+    });
 }
 
 async function inferenceModel() {
