@@ -1,31 +1,46 @@
-from sklearn.base import BaseEstimator, TransformerMixin
-import shap
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression, LogisticRegression
+import shap
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.pipeline import Pipeline
 
+
 class SHAP_Transformer(BaseEstimator, TransformerMixin):
-    def __init__(self, objEstimator, intTopFeats:int = 5, boolVerbose: bool = True):
+    def __init__(self, objEstimator, intTopFeats: int = 5, boolVerbose: bool = True):
         self.objEstimator = objEstimator
         self.intTopFeats = intTopFeats
         self.boolVerbose = boolVerbose
         self.objExplainer = None
 
     def fit(self, X, y=None):
+        if isinstance(X, pd.DataFrame) and len(X) > 1000:
+            X = X.sample(n=1000, random_state=42)
+        elif X is not None and hasattr(X, "shape") and X.shape[0] > 1000:
+            objRandom = np.random.default_rng(42)
+            npSampleIndex = objRandom.choice(X.shape[0], size=1000, replace=False)
+            X = X[npSampleIndex]
+
         if isinstance(self.objEstimator, LinearRegression):
-            self.objExplainer = shap.LinearExplainer(self.objEstimator)
+            if X is None:
+                raise ValueError("[[SHAP_Transformer]] LinearRegression requires background data for SHAP.")
+            self.objExplainer = shap.LinearExplainer(self.objEstimator, X)
         elif isinstance(self.objEstimator, LogisticRegression):
-            self.objExplainer = shap.LinearExplainer(self.objEstimator)
+            if X is None:
+                raise ValueError("[[SHAP_Transformer]] LogisticRegression requires background data for SHAP.")
+            self.objExplainer = shap.LinearExplainer(self.objEstimator, X)
         elif isinstance(self.objEstimator, RandomForestClassifier):
             self.objExplainer = shap.TreeExplainer(self.objEstimator)
         else:
-            raise Exception(f"[[SHAP_Transformer]] 😱 Error self.objEstimator model type: `{self.objEstimator}`. Must only be LinearRegression, LogisticRegression, RandomForestClassifier.")
+            raise TypeError(
+                "[[SHAP_Transformer]] Unsupported estimator type. "
+                "Must be LinearRegression, LogisticRegression, or RandomForestClassifier."
+            )
+
         if self.boolVerbose:
-            print(f"[[SHAP_Transformer]] 🪵 Successfully loaded SHAP explainer.")
+            print("[[SHAP_Transformer]] Successfully loaded SHAP explainer.")
         return self
 
     def _get_positive_shap_values(self, X):
@@ -53,31 +68,26 @@ class SHAP_Transformer(BaseEstimator, TransformerMixin):
         return np2DPositiveShapValues
 
     def transform(self, X):
-        # np3DShapValues look like this:
-        # [
-        #   [ # line item 1
-        #     [0.000105, -0.000105] # feature 1
-        #     [0.003062, -0.003062] # feature 2
-        #     [0.011599, -0.011599] # feature 3
-        #     [0.005208, -0.005208] # feature 4
-        #   ]
-        #   [ # line item 2
-        #     [0.000105, -0.000105] # feature 1
-        #     [0.003062, -0.003062] # feature 2
-        #     [0.011599, -0.011599] # feature 3
-        #     [0.005208, -0.005208] # feature 4
-        #   ]
-        # ]
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
 
         np2DPositiveShapValues = self._get_positive_shap_values(X)
-        np1DPredictions = np.asarray(self.objEstimator.predict(X))
+        np1DRawPredictions = np.asarray(self.objEstimator.predict(X))
         np2DPredProba = (
             self.objEstimator.predict_proba(X)
             if hasattr(self.objEstimator, "predict_proba")
             else None
         )
+        if np2DPredProba is not None:
+            np1DProbability = np.asarray(np2DPredProba[:, 1], dtype=float)
+        else:
+            np1DProbability = np.clip(np.asarray(np1DRawPredictions, dtype=float), 0.0, 1.0)
+
+        if np1DRawPredictions.dtype.kind not in {"i", "u", "b"}:
+            np1DPredictions = (np1DRawPredictions >= 0.5).astype(int)
+        else:
+            np1DPredictions = np1DRawPredictions.astype(int, copy=False)
+
         arrFeatureNames = X.columns.to_numpy()
         np2DXValues = X.to_numpy()
         np1DFeatureIndex = np.arange(X.shape[1])
@@ -87,26 +97,11 @@ class SHAP_Transformer(BaseEstimator, TransformerMixin):
         for intIndexRow in range(len(X)):
             objPrediction = np1DPredictions[intIndexRow]
             dicNewPredictionRow = {
-                "Prediction": objPrediction.item() if hasattr(objPrediction, "item") else objPrediction
+                "Prediction": objPrediction.item() if hasattr(objPrediction, "item") else objPrediction,
+                "Churn_Probability": float(np1DProbability[intIndexRow]),
             }
 
-            if np2DPredProba is not None:
-                dicNewPredictionRow["Churn_Probability"] = float(np2DPredProba[intIndexRow][1])
-
             np1DShapSpecific = np2DPositiveShapValues[intIndexRow]
-            np2DSHAPSpecific = np.column_stack(
-                (
-                    np1DFeatureIndex,
-                    -np1DShapSpecific,
-                    np1DShapSpecific,
-                )
-            )
-
-            if self.boolVerbose:
-                print('check SHAP array here:')
-                for arrArray in np2DSHAPSpecific:
-                    print('-----')
-                    print(arrArray)
 
             if intTopFeatCount > 0:
                 np1DTopFeatureIndices = np.argpartition(
@@ -127,6 +122,7 @@ class SHAP_Transformer(BaseEstimator, TransformerMixin):
 
         return pd.DataFrame(lisNewPredictionRow)
 
+
 def get_top_feats(X, pipeModel: Pipeline):
     """
     # Inputs
@@ -137,11 +133,9 @@ def get_top_feats(X, pipeModel: Pipeline):
     1. Dict of feature importance (sorted descending)
     """
 
-    # 1. Split pipeline
     pipeTransformer = pipeModel[:-1]
-    pipeEstimator   = pipeModel.named_steps["model"]
+    pipeEstimator = pipeModel.named_steps["model"]
 
-    # 2. Transform input
     X_train = pipeTransformer.transform(X)
 
     if isinstance(X_train, pd.DataFrame):
@@ -152,7 +146,6 @@ def get_top_feats(X, pipeModel: Pipeline):
         npSampleIndex = objRandom.choice(X_train.shape[0], size=1000, replace=False)
         X_train = X_train[npSampleIndex]
 
-    # 3. Get feature names from the transformed frame when available.
     if isinstance(X_train, pd.DataFrame):
         feature_names = [str(strFeatureName) for strFeatureName in X_train.columns]
     else:
@@ -164,75 +157,47 @@ def get_top_feats(X, pipeModel: Pipeline):
         except Exception:
             feature_names = [f"feat_{i}" for i in range(X_train.shape[1])]
 
-    # 4. SHAP
-    objExplainer = shap.Explainer(pipeEstimator, X_train)
-    shap_values = objExplainer(X_train)
+    importance = None
+    if hasattr(pipeEstimator, "feature_importances_"):
+        importance = np.asarray(pipeEstimator.feature_importances_, dtype=float)
+    elif hasattr(pipeEstimator, "coef_"):
+        importance = np.asarray(pipeEstimator.coef_, dtype=float)
+        if importance.ndim > 1:
+            importance = np.abs(importance).mean(axis=0)
+        else:
+            importance = np.abs(importance)
 
-    # 5. Handle shape (classifier vs regressor)
-    values = shap_values.values
-    if values.ndim == 3:  # (n_samples, n_features, n_classes)
-        values = values[..., 1]  # take positive class
+    if importance is None:
+        objExplainer = shap.Explainer(pipeEstimator, X_train)
+        shap_values = objExplainer(X_train)
+        values = shap_values.values
+        if values.ndim == 3:
+            values = values[..., 1]
+        importance = np.abs(values).mean(axis=0)
 
-    # 6. Global importance
-    importance = np.abs(values).mean(axis=0)
-
-    # 7. Return sorted dict
     return dict(sorted(
         zip(feature_names, importance),
         key=lambda x: x[1],
         reverse=True
     ))
 
+
 def get_all_evals(
         X_trainrain,
-        X_trainest, 
-        y_train, 
+        X_trainest,
+        y_train,
         y_test,
         pipeModel):
     """
-    # Inputs
-
-        X_trainrain,
-        X_trainest, 
-        y_train, 
-        y_test,
-    3. `pipeModel`: Pipeline. A trained pipeline containing both transformers and estimators.
-
-    # Process
-    1. Splits train and test sets.
-    2. Gets best features using SHAP
-    3. Gets other eval metrics:
-        - Accuracy
-        - Precision
-        - Recall
-        - F1
-        - Confusion Matrix
-
     # Output
-    1. Returns a dictionary:
-        {
-            "intCountTrainPositiveClass": int(np.count_nonzero(np.asarray(yTrain, dtype=int) == 1)),
-            "intCountTrainNegativeClass": int(np.count_nonzero(np.asarray(yTrain, dtype=int) == 0)),
-            "intCountTestPositiveClass": int(np.count_nonzero(npYTest == 1)),
-            "intCountTestNegativeClass": int(np.count_nonzero(npYTest == 0)),
-            "fltAccuracy": float(accuracy_score(npYTest, npYPred)),
-            "fltPrecision": float(precision_score(npYTest, npYPred, zero_division=0)),
-            "fltRecall": float(recall_score(npYTest, npYPred, zero_division=0)),
-            "fltF1": float(f1_score(npYTest, npYPred, zero_division=0)),
-            "objConfusionMatrix": objConfusionMatrix,
-            "top_feats": dicTopFeats
-        }
+    Returns train/test counts, metrics, confusion matrix, and top features.
     """
 
-    # Step 1: Get splits
-
-    # Step 2: Get Top Feats
     dicFeats = get_top_feats(
-        X = X_trainrain,
-        pipeModel = pipeModel
+        X=X_trainrain,
+        pipeModel=pipeModel
     )
 
-    # Step 3: Get Evals
     npYTest = np.asarray(y_test, dtype=int)
     npYPred = np.asarray(pipeModel.predict(X_trainest))
 

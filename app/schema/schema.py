@@ -50,15 +50,27 @@ class DTO_FeatureImportanceRow(BaseModel):
     fltImportance: float
     intRank: int
 
+class DTO_ModelTrainingResult(BaseModel):
+    strModelName: str
+    boolIsChampion: bool
+    fltGridScore: float
+    fltTimeTaken: float
+    dicBestParams: dict[str, Any]
+    objConfusionMatrix: DTO_ConfusionMatrix
+    objMetrics: DTO_Metrics
+    tblFeatureImportance: list[DTO_FeatureImportanceRow]
+
 class DTO_Respond_RunTraining(BaseModel):
     dicStatus: dict # sample {500: 'Cant read file'}
     timeTaken: float
     dateCreated: str
+    strBestModelName: str
 
     objDatasetSplit: DTO_DatasetSplit
     objConfusionMatrix: DTO_ConfusionMatrix
     objMetrics: DTO_Metrics
     tblFeatureImportance: list[DTO_FeatureImportanceRow]
+    tblModelResults: list[DTO_ModelTrainingResult]
 
 class DTO_Request_UploadScoringData(BaseModel):
     boolVerbose: bool = False
