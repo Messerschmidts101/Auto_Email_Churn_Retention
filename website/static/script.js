@@ -332,8 +332,8 @@ function buildModelLabWorkspace() {
                     <div class="panel-header">
                         <div>
                             <span class="stage-index">B.</span>
-                            <h3>Other Models Preview</h3>
-                            <p>Historical models from the database appear here after at least two runs exist.</p>
+                            <h3>Model Comparison</h3>
+                            <p>Current training candidates appear here with their latest metrics and top rankings.</p>
                         </div>
                     </div>
                     <div id="historical-models-preview" class="table-shell table-shell-large"></div>
@@ -443,6 +443,92 @@ function normalizeFeatureImportanceRows(data) {
 
     const rows = data.length === 1 && Array.isArray(data[0]) ? data[0] : data;
     return rows.filter((row) => row && typeof row === "object" && !Array.isArray(row));
+}
+
+function normalizeTrainingModelResults(data) {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    return data
+        .filter((row) => row && typeof row === "object" && !Array.isArray(row))
+        .map((row) => ({
+            strModelName:
+                row.strModelName ||
+                row.Model ||
+                row.ModelName ||
+                row.Name ||
+                "Current backend pipeline",
+            boolIsChampion: Boolean(row.boolIsChampion),
+            fltGridScore: Number(row.fltGridScore) || 0,
+            fltTimeTaken: Number(row.fltTimeTaken) || 0,
+            dicBestParams:
+                row.dicBestParams && typeof row.dicBestParams === "object"
+                    ? row.dicBestParams
+                    : {},
+            objMetrics: normalizeTableData(row.objMetrics)[0] || {},
+            objConfusionMatrix: normalizeTableData(row.objConfusionMatrix)[0] || {},
+            tblFeatureImportance: normalizeFeatureImportanceRows(row.tblFeatureImportance),
+        }));
+}
+
+function sortTrainingModelResults(results) {
+    return [...normalizeTrainingModelResults(results)].sort((left, right) => {
+        const f1Delta =
+            (Number(right.objMetrics?.fltF1) || 0) - (Number(left.objMetrics?.fltF1) || 0);
+        if (f1Delta !== 0) {
+            return f1Delta;
+        }
+
+        const accuracyDelta =
+            (Number(right.objMetrics?.fltAccuracy) || 0) -
+            (Number(left.objMetrics?.fltAccuracy) || 0);
+        if (accuracyDelta !== 0) {
+            return accuracyDelta;
+        }
+
+        return (Number(right.fltGridScore) || 0) - (Number(left.fltGridScore) || 0);
+    });
+}
+
+function formatModelParams(params) {
+    if (!params || typeof params !== "object" || Array.isArray(params)) {
+        return "Backend-defined";
+    }
+
+    const entries = Object.entries(params);
+    if (!entries.length) {
+        return "Backend-defined";
+    }
+
+    return entries
+        .map(([key, value]) => `${key}=${formatTableValue(value)}`)
+        .join(", ");
+}
+
+function buildTrainingComparisonRows(modelResults) {
+    return sortTrainingModelResults(modelResults).map((result, index) => ({
+        Rank: index + 1,
+        Model: result.strModelName,
+        Champion: result.boolIsChampion ? "Yes" : "No",
+        Accuracy: Number(result.objMetrics?.fltAccuracy) || 0,
+        Precision: Number(result.objMetrics?.fltPrecision) || 0,
+        Recall: Number(result.objMetrics?.fltRecall) || 0,
+        F1: Number(result.objMetrics?.fltF1) || 0,
+        GridScore: Number(result.fltGridScore) || 0,
+        ModelParams: formatModelParams(result.dicBestParams),
+    }));
+}
+
+function buildTrainingFeatureRows(modelResults) {
+    return sortTrainingModelResults(modelResults).flatMap((result) =>
+        normalizeFeatureImportanceRows(result.tblFeatureImportance).map((row) => ({
+            Model: result.strModelName,
+            Rank: firstDefinedValue(row, ["intRank", "Rank"]) || "",
+            Feature: firstDefinedValue(row, ["strFeatureName", "Feature", "FeatureName"]) || "",
+            Importance: Number(firstDefinedValue(row, ["fltImportance", "Importance", "Score"])) || 0,
+        }))
+    );
 }
 
 function toNumber(id, fallbackValue) {
@@ -685,8 +771,6 @@ async function trainModel() {
         "progress-bar-train",
         "progress-label-train"
     );
-    const timeDetails = document.getElementById("time-details");
-    const featureImportancePreview = document.getElementById("feature-importance-preview");
 
     showAppNotice("Training model with the current backend route...", "neutral");
 
@@ -706,40 +790,13 @@ async function trainModel() {
         stopProgress(progress, true);
         UI_STATE.lastTrainingResponse = data;
 
-        renderKeyValueCards(data.objMetrics, "training-metric-cards");
-        renderMetricGrid(
-            data.objDatasetSplit,
-            "training-details-preview",
-            "No dataset split available."
-        );
-        renderMetricGrid(data.objMetrics, "metrics-details-preview", "No model metrics available.");
-        renderMetricGrid(
-            data.objConfusionMatrix,
-            "confusion-metrix-details-preview",
-            "No confusion matrix available."
-        );
-
-        timeDetails.textContent =
-            buildMetadataLine(data.timeTaken, data.dateCreated) ||
-            "Training completed.";
-
-        const featureImportanceRows = normalizeFeatureImportanceRows(data.tblFeatureImportance);
-
-        if (featureImportanceRows.length > 0) {
-            displayTable(
-                featureImportanceRows,
-                "feature-importance-preview",
-                "No feature importance output available."
-            );
-        } else if (featureImportancePreview) {
-            featureImportancePreview.innerHTML =
-                '<p class="empty-state">The current backend training response does not provide feature importance yet.</p>';
+        try {
+            await loadModelHistory(true);
+        } catch (historyError) {
+            console.error("Model history refresh error:", historyError);
         }
 
-        renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
-        renderLatestTrainingResultSummary(data);
-        renderTrainingLeaderboard(UI_STATE.modelHistoryRows);
-        await loadModelHistory(true);
+        renderTrainingRunOutputs(data);
         setButtonEnabled("btn-proceed-inference", true);
         setStatusMessage(
             "train-upload-status",
@@ -763,6 +820,64 @@ async function trainModel() {
         );
         showAppNotice(error.message || "Model training failed.", "danger");
     }
+}
+
+function renderTrainingRunOutputs(data) {
+    const timeDetails = document.getElementById("time-details");
+    const featureImportancePreview = document.getElementById("feature-importance-preview");
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
+    const comparisonRows = buildTrainingComparisonRows(modelResults);
+    const featureRows = buildTrainingFeatureRows(modelResults);
+    const bestModelName = data.strBestModelName || "Latest run";
+    const metadataLine = buildMetadataLine(data.timeTaken, data.dateCreated);
+
+    renderTrainingMetricCards(modelResults, data.objMetrics);
+    renderMetricGrid(
+        data.objDatasetSplit,
+        "training-details-preview",
+        "No dataset split available."
+    );
+    renderMetricGrid(data.objMetrics, "metrics-details-preview", "No model metrics available.");
+    renderMetricGrid(
+        data.objConfusionMatrix,
+        "confusion-metrix-details-preview",
+        "No confusion matrix available."
+    );
+
+    if (timeDetails) {
+        timeDetails.textContent = metadataLine
+            ? `${metadataLine} Champion: ${bestModelName}.`
+            : `Training completed. Champion: ${bestModelName}.`;
+    }
+
+    if (comparisonRows.length > 0) {
+        displayTable(
+            comparisonRows,
+            "historical-models-preview",
+            "No model comparison output available."
+        );
+        displayTable(
+            comparisonRows,
+            "model-lab-run-leaderboard",
+            "No model comparison output available."
+        );
+    } else {
+        renderTrainingLeaderboard(UI_STATE.modelHistoryRows);
+    }
+
+    if (featureRows.length > 0) {
+        displayTable(
+            featureRows,
+            "feature-importance-preview",
+            "No feature importance output available."
+        );
+    } else if (featureImportancePreview) {
+        featureImportancePreview.innerHTML =
+            '<p class="empty-state">The current backend training response does not provide feature importance yet.</p>';
+    }
+
+    renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
+    renderLatestTrainingResultSummary(data);
 }
 
 function renderTrainingDatasetProfile(rows, datasetSplit = null) {
@@ -1344,8 +1459,16 @@ function renderLatestTrainingResultSummary(data) {
         "Training completed.";
 
     const metrics = normalizeTableData(data.objMetrics)[0] || {};
+    const bestModelName = data.strBestModelName || "Latest run";
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
     container.appendChild(
-        buildSummaryCard("Source", "Latest run", "Directly returned by the training endpoint.")
+        buildSummaryCard(
+            "Champion",
+            bestModelName,
+            modelResults.length
+                ? `Selected from ${modelResults.length} trained candidate models.`
+                : "Directly returned by the training endpoint."
+        )
     );
     container.appendChild(
         buildSummaryCard("F1", formatSummaryValue("fltF1", metrics.fltF1), "Primary score from the latest run.")
@@ -1573,6 +1696,13 @@ function renderTrainingLeaderboard(rows) {
 }
 
 function buildTrainingLeaderboardFallbackRows() {
+    const latestModelResults = buildTrainingComparisonRows(
+        normalizeTrainingModelResults(UI_STATE.lastTrainingResponse?.tblModelResults)
+    );
+    if (latestModelResults.length) {
+        return latestModelResults;
+    }
+
     const latestMetrics = normalizeTableData(UI_STATE.lastTrainingResponse?.objMetrics)[0];
 
     if (latestMetrics) {
@@ -1601,6 +1731,35 @@ function buildTrainingLeaderboardFallbackRows() {
         Recall: " ",
         ModelParams: " ",
     }));
+}
+
+function renderTrainingMetricCards(modelResults, fallbackMetrics) {
+    const container = document.getElementById("training-metric-cards");
+    if (!container) {
+        return;
+    }
+
+    const sortedResults = sortTrainingModelResults(modelResults);
+    if (!sortedResults.length) {
+        renderKeyValueCards(fallbackMetrics, "training-metric-cards");
+        return;
+    }
+
+    container.innerHTML = "";
+    sortedResults.forEach((result) => {
+        const metrics = result.objMetrics || {};
+        const strCardTitle = result.boolIsChampion
+            ? `${result.strModelName} (Champion)`
+            : result.strModelName;
+        const strCardValue = `F1 ${formatSummaryValue("fltF1", metrics.fltF1)}`;
+        const strCardDescription =
+            `Acc ${formatSummaryValue("fltAccuracy", metrics.fltAccuracy)} | ` +
+            `Prec ${formatSummaryValue("fltPrecision", metrics.fltPrecision)} | ` +
+            `Recall ${formatSummaryValue("fltRecall", metrics.fltRecall)}`;
+        container.appendChild(
+            buildSummaryCard(strCardTitle, strCardValue, strCardDescription)
+        );
+    });
 }
 
 function buildLiveTrainingParamsLabel() {
