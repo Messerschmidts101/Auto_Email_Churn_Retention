@@ -219,17 +219,6 @@ function buildModelLabWorkspace() {
                         <div class="model-run-card-header">
                             <h3>Step 1: General Setting</h3>
                         </div>
-                        <ol class="model-run-settings-list" type="a">
-                            <li>Random State</li>
-                            <li>Train/Test Split Ratio</li>
-                            <li>Cross Validation (k-fold)</li>
-                            <li>Scoring Metric (target optimization)</li>
-                            <li>Top Feat Count Scoring</li>
-                        </ol>
-                        <div class="model-run-settings-note">
-                            Live controls from the current backend route stay here while the
-                            remaining items are UI-only for now.
-                        </div>
                         <div id="model-lab-run-controls-slot" class="model-run-settings-controls"></div>
                     </article>
 
@@ -246,19 +235,19 @@ function buildModelLabWorkspace() {
                                 <span class="placeholder-badge">Backend placeholder</span>
                                 <h3>Optional Step 1: Parameter Tuning</h3>
                                 <p class="tuning-title">Random Forest</p>
-                                <p>The current backend does not expose model-family selection or Random Forest hyperparameters yet.</p>
+                                <p>TODO: Remove this container because grid search will automate the tuning</p>
                             </article>
                             <article class="panel tuning-card">
                                 <span class="placeholder-badge">Backend placeholder</span>
                                 <h3>Optional Step 2: Parameter Tuning</h3>
                                 <p class="tuning-title">Logistic Regression</p>
-                                <p>This model option is represented in the UI, but there is no route for training or tuning it today.</p>
+                                <p>TODO: Remove this container because grid search will automate the tuning</p>
                             </article>
                             <article class="panel tuning-card">
                                 <span class="placeholder-badge">Backend placeholder</span>
                                 <h3>Optional Step 3: Parameter Tuning</h3>
                                 <p class="tuning-title">Linear Regression</p>
-                                <p>Kept as a placeholder panel until the backend exposes additional training pipelines.</p>
+                                <p>TODO: Remove this container because grid search will automate the tuning</p>
                             </article>
                         </div>
 
@@ -291,8 +280,8 @@ function buildModelLabWorkspace() {
                     </article>
                 </div>
 
-                <div class="model-run-divider" aria-hidden="true">
-                    <span>Divider</span>
+                <div class="model-load-divider" aria-hidden="true">
+                    <span>Preview Workspace</span>
                 </div>
 
                 <article class="panel stage-card model-run-leaderboard-card">
@@ -679,8 +668,11 @@ function getTrainingRequestBody() {
 
     return {
         intRandomState: toNumber("train-random-state", 0),
+        fltTTSplit: toNumber("train-train-test-split", 0.7),
+        intCrossFold: toNumber("train-cross-fold", 5),
+        intPrimaryMetric: toNumber("train-primary-metric", 1),
         intTopFeats: toNumber("train-top-feats", 20),
-        fltF1: toNumber("train-f1-threshold", 1),
+        fltF1: 1,
         lisstrFeats: selectedColumns,
         strFeatTarget: profile?.targetColumn || "",
     };
@@ -1614,17 +1606,26 @@ function buildTrainingLeaderboardFallbackRows() {
 function buildLiveTrainingParamsLabel() {
     const params = [];
     const randomState = document.getElementById("train-random-state")?.value;
+    const splitRatio = document.getElementById("train-train-test-split")?.value;
+    const crossFold = document.getElementById("train-cross-fold")?.value;
+    const primaryMetric = document.getElementById("train-primary-metric");
     const topFeatures = document.getElementById("train-top-feats")?.value;
-    const f1Target = document.getElementById("train-f1-threshold")?.value;
+    const primaryMetricLabel = primaryMetric?.selectedOptions?.[0]?.textContent?.trim();
 
     if (randomState) {
         params.push(`Random=${randomState}`);
     }
+    if (splitRatio) {
+        params.push(`Split=${splitRatio}`);
+    }
+    if (crossFold) {
+        params.push(`CV=${crossFold}`);
+    }
+    if (primaryMetricLabel) {
+        params.push(`Metric=${primaryMetricLabel}`);
+    }
     if (topFeatures) {
         params.push(`TopFeats=${topFeatures}`);
-    }
-    if (f1Target) {
-        params.push(`F1Target=${f1Target}`);
     }
 
     return params.join(" | ") || "Current backend pipeline";

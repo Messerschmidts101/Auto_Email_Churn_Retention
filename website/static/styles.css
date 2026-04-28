@@ -1597,7 +1597,8 @@ body::before,
 }
 
 .model-run-settings-controls .input-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
 }
 
 .model-run-settings-controls .field {

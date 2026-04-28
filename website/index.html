@@ -172,25 +172,45 @@
                             <div class="input-grid">
                                 <label class="field" for="train-random-state">
                                     <span>Random state</span>
-                                    <input type="number" id="train-random-state" value="0" />
+                                    <input type="number" id="train-random-state" value="0" step="1" />
+                                </label>
+                                <label class="field" for="train-train-test-split">
+                                    <span>Train/Test split ratio</span>
+                                    <input
+                                        type="number"
+                                        id="train-train-test-split"
+                                        value="0.7"
+                                        min="0.1"
+                                        max="0.95"
+                                        step="0.05"
+                                    />
+                                </label>
+                                <label class="field" for="train-cross-fold">
+                                    <span>Cross validation (k-fold)</span>
+                                    <input
+                                        type="number"
+                                        id="train-cross-fold"
+                                        value="5"
+                                        min="2"
+                                        step="1"
+                                    />
+                                </label>
+                                <label class="field" for="train-primary-metric">
+                                    <span>Scoring metric</span>
+                                    <select id="train-primary-metric">
+                                        <option value="1" selected>F1 score</option>
+                                        <option value="2">Accuracy</option>
+                                        <option value="3">Precision</option>
+                                        <option value="4">Recall</option>
+                                    </select>
                                 </label>
                                 <label class="field" for="train-top-feats">
-                                    <span>Top features</span>
+                                    <span>Top feat count scoring</span>
                                     <input
                                         type="number"
                                         id="train-top-feats"
                                         value="20"
                                         min="1"
-                                    />
-                                </label>
-                                <label class="field" for="train-f1-threshold">
-                                    <span>F1 target</span>
-                                    <input
-                                        type="number"
-                                        id="train-f1-threshold"
-                                        value="1"
-                                        min="0"
-                                        step="0.01"
                                     />
                                 </label>
                             </div>

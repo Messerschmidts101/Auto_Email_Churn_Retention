@@ -21,12 +21,11 @@ class DTO_Request_RunTraining(BaseModel):
     intRandomState: int = 0
     lisstrFeats: list[str]
     strFeatTarget: str 
-    fltTTSplit: float               #TODO: apply this
-    intCrossFold:int                #TODO: apply this
-    intPrimaryMetric:int            #TODO: apply this
-    intTopFeats:int                 #TODO: apply this
-    #intTopFeats: int = 20
-    #fltF1: float = 1
+    fltTTSplit: float = 0.7
+    intCrossFold: int = 5
+    intPrimaryMetric: int = 1
+    intTopFeats: int = 20
+    fltF1: float = 1.0
     
 class DTO_DatasetSplit(BaseModel):
     intNegativeTesting: int

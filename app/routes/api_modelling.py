@@ -75,6 +75,48 @@ def _build_training_pipeline_factory(int_random_state: int):
     return _build_pipeline
 
 
+def _normalize_training_columns(
+    tblInput: pd.DataFrame,
+    lisstr_requested_features: list[str],
+    str_target_column: str,
+) -> list[str]:
+    str_target_column = str_target_column.strip()
+    if not str_target_column:
+        raise HTTPException(status_code=400, detail="Training target column is required")
+    if str_target_column not in tblInput.columns:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Training target column not found: {str_target_column}",
+        )
+
+    lisstr_missing_features: list[str] = []
+    lisstr_selected_features: list[str] = []
+    for str_feature_name in lisstr_requested_features:
+        if str_feature_name == str_target_column:
+            continue
+        if str_feature_name not in tblInput.columns:
+            lisstr_missing_features.append(str_feature_name)
+            continue
+        if str_feature_name not in lisstr_selected_features:
+            lisstr_selected_features.append(str_feature_name)
+
+    if lisstr_missing_features:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Training features not found in the dataset: "
+                + ", ".join(lisstr_missing_features)
+            ),
+        )
+    if not lisstr_selected_features:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one training feature must be selected",
+        )
+
+    return lisstr_selected_features
+
+
 @router.post(
     "/upload",
     summary="Step 1: Upload training data",
@@ -163,13 +205,25 @@ def run_training_model(
         str_dataset_name="Training data",
     )
 
+    lisstrSelectedFeatures = _normalize_training_columns(
+        tblInput=tblTrainData,
+        lisstr_requested_features=objRequest.lisstrFeats,
+        str_target_column=objRequest.strFeatTarget,
+    )
     intTopFeats = max(c.intCountFeatsScoring, objRequest.intTopFeats)
-    tblTrainData = tblTrainData[objRequest.lisstrFeats + [objRequest.strFeatTarget]].copy() # TODO: change here 
+    tblTrainData = tblTrainData[
+        lisstrSelectedFeatures + [objRequest.strFeatTarget]
+    ].copy()
     try:
         time_start = time.perf_counter()
         objModel, dicResults = build_pipeline_model_best(
             intModel = c.intModelDefault, #TODO: change soon
             tblData = tblTrainData,
+            intCv = objRequest.intCrossFold,
+            fltTTSplit = objRequest.fltTTSplit,
+            intPrimaryMetric = objRequest.intPrimaryMetric,
+            intRandomState = objRequest.intRandomState,
+            strTargetColumn = objRequest.strFeatTarget,
             boolVerbose = False,
             classModel = _build_training_pipeline_factory(objRequest.intRandomState),
             classEval = partial(SHAP_Transformer, intTopFeats=intTopFeats),
