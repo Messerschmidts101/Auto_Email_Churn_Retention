@@ -1,11 +1,11 @@
 # python -m app.core.server_web
 import os
-from pathlib import Path
 import pickle
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routes.api_database import router as database_router
@@ -22,6 +22,37 @@ WEBSITE_DIR = BASE_DIR / "website"
 STATIC_DIR = WEBSITE_DIR / "static"
 INDEX_PATH = WEBSITE_DIR / "index.html"
 MAX_LOAD_RETRY = 5
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            response.headers.update(NO_CACHE_HEADERS)
+        return response
+
+
+def _asset_version(path_asset: Path) -> str:
+    try:
+        return str(path_asset.stat().st_mtime_ns)
+    except FileNotFoundError:
+        return "0"
+
+
+def _render_index_html() -> str:
+    str_html = INDEX_PATH.read_text(encoding="utf-8")
+    dic_asset_paths = {
+        "/static/styles.css": f"/static/styles.css?v={_asset_version(STATIC_DIR / 'styles.css')}",
+        "/static/script.js": f"/static/script.js?v={_asset_version(STATIC_DIR / 'script.js')}",
+    }
+    for str_old_path, str_versioned_path in dic_asset_paths.items():
+        str_html = str_html.replace(f'"{str_old_path}"', f'"{str_versioned_path}"')
+    return str_html
 
 
 @asynccontextmanager
@@ -85,11 +116,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)
     async def landing_page():
-        return FileResponse(INDEX_PATH)
+        return HTMLResponse(
+            content=_render_index_html(),
+            headers=NO_CACHE_HEADERS,
+        )
 
     app.include_router(training_router)
     app.include_router(scoring_router)

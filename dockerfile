@@ -1,27 +1,24 @@
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
-# Install Java 17, Python 3.10+, and system dependencies
-RUN apt-get update && apt-get install -y \
-    openjdk-17-jdk \
-    python3 python3-pip python3-venv \
-    build-essential \
-    git \
-    curl wget \
-    gfortran libopenblas-dev liblapack-dev \
-    llvm && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV HADOOP_HOME=/opt/hadoop
-ENV PYSPARK_PYTHON=python3
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
-COPY . /app
-RUN rm -rf venv
 
-# Install Python dependencies
-RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    libgomp1 \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY . .
 
 EXPOSE 8000
-CMD ["python3", "server.py"]
+
+CMD ["uvicorn", "app.core.server_web:app", "--host", "0.0.0.0", "--port", "8000"]

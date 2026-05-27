@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      EMAIL_APP_EMAIL: ${EMAIL_APP_EMAIL:-}
+      EMAIL_APP_PASSWORD: ${EMAIL_APP_PASSWORD:-}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app_temp_files:/app/website/Temporary_Files
+      - app_artifacts:/app/artifacts
+
+volumes:
+  postgres_data:
+  app_temp_files:
+  app_artifacts:
