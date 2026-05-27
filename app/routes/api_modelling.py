@@ -270,6 +270,7 @@ def run_training_model(
         lisstr_requested_features=objRequest.lisstrFeats,
         str_target_column=objRequest.strFeatTarget,
     )
+    lisintSelectedModels = list(dict.fromkeys(objRequest.lisintModels))
     intTopFeats = max(c.intCountFeatsScoring, objRequest.intTopFeats)
     tblTrainData = tblTrainData[
         lisstrSelectedFeatures + [objRequest.strFeatTarget]
@@ -278,7 +279,7 @@ def run_training_model(
         time_start = time.perf_counter()
         dicTrainingRun = build_pipeline_models_best(
             tblData=tblTrainData,
-            lisintModels=[3, 1, 2],
+            lisintModels=lisintSelectedModels,
             intCv=objRequest.intCrossFold,
             fltTTSplit=objRequest.fltTTSplit,
             intPrimaryMetric=objRequest.intPrimaryMetric,

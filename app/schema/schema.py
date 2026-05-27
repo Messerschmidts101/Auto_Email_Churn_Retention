@@ -1,6 +1,6 @@
 # schemas_response/modelling.py
 from typing import Any, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DTO_Request_UploadTrainingData(BaseModel):
@@ -20,7 +20,8 @@ class DTO_Respond_UploadDataFrame(BaseModel):
 class DTO_Request_RunTraining(BaseModel):
     intRandomState: int = 0
     lisstrFeats: list[str]
-    strFeatTarget: str 
+    strFeatTarget: str
+    lisintModels: list[int] = Field(default_factory=lambda: [3, 2, 1])
     fltTTSplit: float = 0.7
     intCrossFold: int = 5
     intPrimaryMetric: int = 1

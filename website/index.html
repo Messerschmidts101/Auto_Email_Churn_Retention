@@ -74,8 +74,9 @@
                     <span class="eyebrow">Backend note</span>
                     <p>
                         The `Model Lab` workflow below follows the requested step layout.
-                        Optional model-family tuning and feature importance remain
-                        placeholder-only until the backend exposes them.
+                        Training now lets you choose between Random Forest, Logistic
+                        Regression, and Linear Regression while keeping the existing
+                        backend pipeline contract.
                     </p>
                 </div>
             </aside>
@@ -170,6 +171,48 @@
                             </p>
 
                             <div class="input-grid">
+                                <div class="field field-full">
+                                    <span>Models to run</span>
+                                    <div class="model-family-selector">
+                                        <label class="model-family-option" for="train-model-random-forest">
+                                            <input
+                                                type="checkbox"
+                                                id="train-model-random-forest"
+                                                value="3"
+                                                checked
+                                            />
+                                            <div class="model-family-copy">
+                                                <strong>Random Forest</strong>
+                                                <p>Tree ensemble for nonlinear churn behavior.</p>
+                                            </div>
+                                        </label>
+                                        <label class="model-family-option" for="train-model-logistic-regression">
+                                            <input
+                                                type="checkbox"
+                                                id="train-model-logistic-regression"
+                                                value="2"
+                                                checked
+                                            />
+                                            <div class="model-family-copy">
+                                                <strong>Logistic Regression</strong>
+                                                <p>Classification baseline with probabilistic output.</p>
+                                            </div>
+                                        </label>
+                                        <label class="model-family-option" for="train-model-linear-regression">
+                                            <input
+                                                type="checkbox"
+                                                id="train-model-linear-regression"
+                                                value="1"
+                                                checked
+                                            />
+                                            <div class="model-family-copy">
+                                                <strong>Linear Regression</strong>
+                                                <p>Legacy regression candidate thresholded for churn.</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <p class="field-hint">Select at least one model family before training.</p>
+                                </div>
                                 <label class="field" for="train-random-state">
                                     <span>Random state</span>
                                     <input type="number" id="train-random-state" value="0" step="1" />
