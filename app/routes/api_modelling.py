@@ -11,25 +11,25 @@ from sqlalchemy.orm import Session
 
 from ai_ml.b_model.pipeline import build_pipeline_model
 from ai_ml.c_evaluator.transformers import SHAP_Transformer
-from ai_ml.d_orchestrator.train import build_pipeline_model_best
+from ai_ml.d_orchestrator.train import build_pipeline_models_best
 from app.core import config as c
 from app.db.database import connect_db
 from app.db.schema import Historical_Models, Historical_Training, Latest_Training
 from app.schema.schema import (
     DTO_ConfusionMatrix,
     DTO_DatasetSplit,
+    DTO_FeatureImportanceRow,
     DTO_Metrics,
+    DTO_ModelTrainingResult,
     DTO_Request_RunTraining,
     DTO_Respond_RunTraining,
     DTO_Respond_UploadDataFrame,
-    DTO_FeatureImportanceRow
 )
 
 router = APIRouter(
     prefix="/train",
     tags=["train"],
 )
-
 
 def _validate_required_columns(
     tblInput: pd.DataFrame,
@@ -74,6 +74,107 @@ def _build_training_pipeline_factory(int_random_state: int):
         return pipe_model
 
     return _build_pipeline
+
+
+def _normalize_training_columns(
+    tblInput: pd.DataFrame,
+    lisstr_requested_features: list[str],
+    str_target_column: str,
+) -> list[str]:
+    str_target_column = str_target_column.strip()
+    if not str_target_column:
+        raise HTTPException(status_code=400, detail="Training target column is required")
+    if str_target_column not in tblInput.columns:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Training target column not found: {str_target_column}",
+        )
+
+    lisstr_missing_features: list[str] = []
+    lisstr_selected_features: list[str] = []
+    for str_feature_name in lisstr_requested_features:
+        if str_feature_name == str_target_column:
+            continue
+        if str_feature_name not in tblInput.columns:
+            lisstr_missing_features.append(str_feature_name)
+            continue
+        if str_feature_name not in lisstr_selected_features:
+            lisstr_selected_features.append(str_feature_name)
+
+    if lisstr_missing_features:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Training features not found in the dataset: "
+                + ", ".join(lisstr_missing_features)
+            ),
+        )
+    if not lisstr_selected_features:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one training feature must be selected",
+        )
+
+    return lisstr_selected_features
+
+
+def _build_dataset_split_dto(dic_results: dict) -> DTO_DatasetSplit:
+    return DTO_DatasetSplit(
+        intNegativeTesting=int(dic_results["intCountTestNegativeClass"]),
+        intNegativeTraining=int(dic_results["intCountTrainNegativeClass"]),
+        intPositiveTesting=int(dic_results["intCountTestPositiveClass"]),
+        intPositiveTraining=int(dic_results["intCountTrainPositiveClass"]),
+    )
+
+
+def _build_confusion_matrix_dto(obj_confusion_matrix) -> DTO_ConfusionMatrix:
+    return DTO_ConfusionMatrix(
+        intFalseNegative=int(obj_confusion_matrix[1][0]),
+        intFalsePositive=int(obj_confusion_matrix[0][1]),
+        intTrueNegative=int(obj_confusion_matrix[0][0]),
+        intTruePositive=int(obj_confusion_matrix[1][1]),
+    )
+
+
+def _build_metrics_dto(dic_results: dict) -> DTO_Metrics:
+    return DTO_Metrics(
+        fltAccuracy=float(dic_results["fltAccuracy"]),
+        fltPrecision=float(dic_results["fltPrecision"]),
+        fltRecall=float(dic_results["fltRecall"]),
+        fltF1=float(dic_results["fltF1"]),
+    )
+
+
+def _build_feature_importance_rows(dic_feature_scores: dict) -> list[DTO_FeatureImportanceRow]:
+    return [
+        DTO_FeatureImportanceRow(
+            strFeatureName=strFeat,
+            fltImportance=float(fltScore),
+            intRank=intIndex,
+        )
+        for intIndex, (strFeat, fltScore) in enumerate(
+            dic_feature_scores.items(),
+            start=1,
+        )
+    ]
+
+
+def _build_model_training_result_dto(
+    dic_model_run: dict,
+    str_best_model_name: str,
+) -> DTO_ModelTrainingResult:
+    dic_results = dic_model_run["dicResults"]
+    obj_confusion_matrix = dic_results["objConfusionMatrix"]
+    return DTO_ModelTrainingResult(
+        strModelName=dic_model_run["strModelName"],
+        boolIsChampion=dic_model_run["strModelName"] == str_best_model_name,
+        fltGridScore=float(dic_model_run["fltGridScore"]),
+        fltTimeTaken=float(dic_model_run["fltGridTimeTaken"]),
+        dicBestParams=dic_model_run["dicBestParams"],
+        objConfusionMatrix=_build_confusion_matrix_dto(obj_confusion_matrix),
+        objMetrics=_build_metrics_dto(dic_results),
+        tblFeatureImportance=_build_feature_importance_rows(dic_results["dicFeats"]),
+    )
 
 
 @router.post(
@@ -164,16 +265,30 @@ def run_training_model(
         str_dataset_name="Training data",
     )
 
+    lisstrSelectedFeatures = _normalize_training_columns(
+        tblInput=tblTrainData,
+        lisstr_requested_features=objRequest.lisstrFeats,
+        str_target_column=objRequest.strFeatTarget,
+    )
+    lisintSelectedModels = list(dict.fromkeys(objRequest.lisintModels))
     intTopFeats = max(c.intCountFeatsScoring, objRequest.intTopFeats)
-    tblTrainData = tblTrainData[objRequest.lisstrFeats + [objRequest.strFeatTarget]].copy() # TODO: change here 
+    tblTrainData = tblTrainData[
+        lisstrSelectedFeatures + [objRequest.strFeatTarget]
+    ].copy()
     try:
         time_start = time.perf_counter()
-        objModel, dicResults = build_pipeline_model_best(
-            intModel = c.intModelDefault, #TODO: change soon
-            tblData = tblTrainData,
-            boolVerbose = False,
-            classModel = _build_training_pipeline_factory(objRequest.intRandomState),
-            classEval = partial(SHAP_Transformer, intTopFeats=intTopFeats),
+        dicTrainingRun = build_pipeline_models_best(
+            tblData=tblTrainData,
+            lisintModels=lisintSelectedModels,
+            intCv=objRequest.intCrossFold,
+            fltTTSplit=objRequest.fltTTSplit,
+            intPrimaryMetric=objRequest.intPrimaryMetric,
+            intRandomState=objRequest.intRandomState,
+            strTargetColumn=objRequest.strFeatTarget,
+            boolVerbose=False,
+            classModel=_build_training_pipeline_factory(objRequest.intRandomState),
+            classEval=partial(SHAP_Transformer, intTopFeats=intTopFeats),
+            boolPersistBestArtifact=True,
         )
         time_taken = time.perf_counter() - time_start
     except (TypeError, ValueError) as exc:
@@ -181,8 +296,12 @@ def run_training_model(
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Training failed") from exc
 
+    objModel = dicTrainingRun["objBestModel"]
+    strBestModelName = dicTrainingRun["strBestModelName"]
+    dicResults = dicTrainingRun["dicBestResults"]
+    lisdicModelRuns = dicTrainingRun["lisdicModelRuns"]
+
     _ensure_storage_directory()
-    # TODO: address redundancy with building model
     try:
         joblib.dump(
             objModel,
@@ -224,40 +343,24 @@ def run_training_model(
             status_code=500,
             detail="Failed to persist model metrics",
         ) from exc
-    
-    tblTopFeats = [
-        DTO_FeatureImportanceRow(
-            strFeatureName=strFeat,
-            fltImportance=float(fltScore),
-            intRank=intIndex,
-        )
-        for intIndex, (strFeat, fltScore) in enumerate(
-            dicResults["dicFeats"].items(),
-            start=1,
-        )
+
+    tblTopFeats = _build_feature_importance_rows(dicResults["dicFeats"])
+    tblModelResults = [
+        _build_model_training_result_dto(dic_model_run, strBestModelName)
+        for dic_model_run in lisdicModelRuns
     ]
+    objDatasetSplit = _build_dataset_split_dto(dicResults)
+    objConfusionMatrix = _build_confusion_matrix_dto(dicConfusionMatrix)
+    objMetrics = _build_metrics_dto(dicResults)
 
     return DTO_Respond_RunTraining(
         dicStatus={200: "Success"},
         timeTaken=time_taken,
         dateCreated=dtCreated.isoformat(),
-        objDatasetSplit=DTO_DatasetSplit(
-            intNegativeTesting=int(dicResults["intCountTestNegativeClass"]),
-            intNegativeTraining=int(dicResults["intCountTrainNegativeClass"]),
-            intPositiveTesting=int(dicResults["intCountTestPositiveClass"]),
-            intPositiveTraining=int(dicResults["intCountTrainPositiveClass"]),
-        ),
-        objConfusionMatrix=DTO_ConfusionMatrix(
-            intFalseNegative=int(dicConfusionMatrix[1][0]),
-            intFalsePositive=int(dicConfusionMatrix[0][1]),
-            intTrueNegative=int(dicConfusionMatrix[0][0]),
-            intTruePositive=int(dicConfusionMatrix[1][1]),
-        ),
-        objMetrics=DTO_Metrics(
-            fltAccuracy=float(dicResults["fltAccuracy"]),
-            fltPrecision=float(dicResults["fltPrecision"]),
-            fltRecall=float(dicResults["fltRecall"]),
-            fltF1=float(dicResults["fltF1"]),
-        ),
+        strBestModelName=strBestModelName,
+        objDatasetSplit=objDatasetSplit,
+        objConfusionMatrix=objConfusionMatrix,
+        objMetrics=objMetrics,
         tblFeatureImportance=tblTopFeats,
+        tblModelResults=tblModelResults,
     )

@@ -16,7 +16,7 @@ def build_pipeline_model(lisstrColNamesX: list[str], intModel: int, boolVerbose:
     if pipeFeatEng:
         pipeFeatEng = pipeFeatEng(
             lisstrColNamesX = lisstrColNamesX,
-            boolVerbose = True,
+            boolVerbose = boolVerbose,
             strColNameAge = 'Age', 
             strColNameTenure = 'Tenure',
             strColNameAgeTenureRatio = 'Age_Tenure_Ratio',

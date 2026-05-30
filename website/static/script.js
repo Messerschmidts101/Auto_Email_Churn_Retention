@@ -22,6 +22,31 @@ const API_CONFIG = {
 const MAX_TABLE_RENDER_ROWS = 10000;
 const TABLE_VISIBLE_ROWS = 20;
 const COLUMN_REVIEW_VISIBLE_ROWS = 10;
+const TRAINING_MODEL_OPTIONS = [
+    {
+        id: 3,
+        inputId: "train-model-random-forest",
+        label: "Random Forest",
+    },
+    {
+        id: 2,
+        inputId: "train-model-logistic-regression",
+        label: "Logistic Regression",
+    },
+    {
+        id: 1,
+        inputId: "train-model-linear-regression",
+        label: "Linear Regression",
+    },
+];
+const TRAINING_GENERAL_SETTING_IDS = [
+    "train-random-state",
+    "train-train-test-split",
+    "train-cross-fold",
+    "train-primary-metric",
+    "train-top-feats",
+    ...TRAINING_MODEL_OPTIONS.map((option) => option.inputId),
+];
 const MODEL_LAB_STEP_META = {
     load: {
         title: "Navigation Pane: Model Lab -> Load Training",
@@ -31,7 +56,7 @@ const MODEL_LAB_STEP_META = {
     run: {
         title: "Navigation Pane: Model Lab -> Run Training",
         subtitle:
-            "Use the live training route here. Optional model-family tuning tiles stay in placeholder mode until the backend exposes them.",
+            "Choose the model families to run, launch training, and compare candidate speed and quality with the champion highlighted first.",
     },
     result: {
         title: "Navigation Pane: Model Lab -> Training Result",
@@ -51,6 +76,7 @@ const UI_STATE = {
     modelHistoryLoaded: false,
     trainingTargetColumn: null,
     trainingColumnInclusion: {},
+    trainingSettingsConfirmed: false,
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -63,6 +89,7 @@ function initializeUi() {
     showModelLabStep("load");
     initializeFileInputs();
     initializeResultsFilters();
+    initializeTrainingSettingInputs();
     renderTrainingDatasetProfile([]);
     renderTrainingResultPlaceholders();
     renderEmailPlaceholderState(
@@ -106,6 +133,118 @@ function initializeResultsFilters() {
         }
         element.addEventListener("change", viewResults);
     });
+}
+
+function initializeTrainingSettingInputs() {
+    TRAINING_GENERAL_SETTING_IDS.forEach((id) => {
+        const element = document.getElementById(id);
+        if (!element || element.dataset.trainingSettingBound === "true") {
+            return;
+        }
+
+        const handleChange = () => {
+            handleTrainingSettingsChanged();
+        };
+
+        element.addEventListener("change", handleChange);
+        if (element.tagName === "INPUT" && element.type === "number") {
+            element.addEventListener("input", handleChange);
+        }
+
+        element.dataset.trainingSettingBound = "true";
+    });
+
+    refreshTrainingSettingsStatus();
+    setButtonEnabled("btn-view-training-results", Boolean(UI_STATE.lastTrainingResponse));
+}
+
+function setTrainingSettingsLocked(locked) {
+    TRAINING_GENERAL_SETTING_IDS.forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.disabled = Boolean(locked);
+        }
+    });
+
+    const button = document.getElementById("btn-confirm-training-settings");
+    if (!button) {
+        return;
+    }
+
+    button.classList.add("primary-button");
+    button.classList.remove("secondary-button");
+    button.textContent = locked ? "Training Setting Confirmed" : "Confirm Training Setting";
+}
+
+function handleTrainingSettingsChanged() {
+    UI_STATE.trainingSettingsConfirmed = false;
+    renderTrainingDatasetProfile(
+        UI_STATE.trainingRows,
+        UI_STATE.lastTrainingResponse?.objDatasetSplit || null
+    );
+    refreshTrainingSettingsStatus();
+}
+
+function refreshTrainingSettingsStatus() {
+    const selectedModels = getSelectedTrainingModelLabels();
+    const hasRows = normalizeTableData(UI_STATE.trainingRows).length > 0;
+    const isConfirmed = Boolean(UI_STATE.trainingSettingsConfirmed);
+
+    setTrainingSettingsLocked(isConfirmed);
+
+    if (!selectedModels.length) {
+        setStatusMessage(
+            "train-settings-status",
+            "Select at least one model family before confirming the training setting.",
+            "danger"
+        );
+        return;
+    }
+
+    if (isConfirmed) {
+        setStatusMessage(
+            "train-settings-status",
+            hasRows
+                ? "Training setting confirmed. Step 1 is now locked for this training run."
+                : "Training setting confirmed. Step 1 is now locked while the current configuration is active.",
+            "success"
+        );
+        return;
+    }
+
+    setStatusMessage(
+        "train-settings-status",
+        "Review the general setting values, then confirm them to lock Step 1 before training.",
+        "neutral"
+    );
+}
+
+function confirmTrainingSettings() {
+    if (UI_STATE.trainingSettingsConfirmed) {
+        showAppNotice("Training setting is already confirmed and Step 1 is locked.", "neutral");
+        return;
+    }
+
+    if (!getSelectedTrainingModelIds().length) {
+        setStatusMessage(
+            "train-settings-status",
+            "Select at least one model family before confirming the training setting.",
+            "danger"
+        );
+        showAppNotice(
+            "Select at least one model family before confirming the training setting.",
+            "danger"
+        );
+        return;
+    }
+
+    UI_STATE.trainingSettingsConfirmed = true;
+    renderTrainingDatasetProfile(
+        UI_STATE.trainingRows,
+        UI_STATE.lastTrainingResponse?.objDatasetSplit || null
+    );
+    refreshTrainingSettingsStatus();
+    showAppNotice("Training setting confirmed.", "success");
 }
 
 function buildModelLabWorkspace() {
@@ -213,63 +352,107 @@ function buildModelLabWorkspace() {
             </div>
         </div>
         <div id="model-step-run" class="model-step-view hidden">
-            <div class="tuning-grid">
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 1: Parameter Tuning</h3>
-                    <p class="tuning-title">Random Forest</p>
-                    <p>The current backend does not expose model-family selection or Random Forest hyperparameters yet.</p>
-                </article>
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 2: Parameter Tuning</h3>
-                    <p class="tuning-title">Logistic Regression</p>
-                    <p>This model option is represented in the UI, but there is no route for training or tuning it today.</p>
-                </article>
-                <article class="panel tuning-card">
-                    <span class="placeholder-badge">Backend placeholder</span>
-                    <h3>Optional Step 3: Parameter Tuning</h3>
-                    <p class="tuning-title">Linear Regression</p>
-                    <p>Kept as a placeholder panel until the backend exposes additional training pipelines.</p>
-                </article>
-            </div>
-            <article class="panel stage-card">
-                <div class="panel-header panel-header-stack">
-                    <div>
-                        <span class="stage-index">A.</span>
-                        <h3>Model Training Preview</h3>
-                        <p>This view runs the current training endpoint and stages the response in one operational panel.</p>
-                    </div>
-                    <div class="action-row">
-                        <button type="button" class="secondary-button" onclick="showModelLabStep('result')">Open Training Result</button>
-                    </div>
-                </div>
-                <div class="training-preview-layout">
-                    <div class="training-controls">
-                        <div class="info-banner">The current backend route runs one stored pipeline. The tuning tiles above remain placeholders until separate model routes exist.</div>
-                        <div id="model-lab-run-controls-slot" class="inline-stack"></div>
-                    </div>
-                    <div class="training-preview-panel">
-                        <div class="result-detail-panel">
-                            <h4>Run Snapshot</h4>
-                            <div id="model-lab-run-metrics-slot"></div>
+            <div class="model-run-workspace">
+                <div class="model-run-top-grid">
+                    <article class="panel model-run-card model-run-card-settings">
+                        <div class="model-run-card-header">
+                            <h3>Step 1: General Setting</h3>
                         </div>
-                        <div class="result-detail-panel">
-                            <h4>Execution Notes</h4>
-                            <div class="placeholder-grid placeholder-grid-compact">
-                                <div class="placeholder-card">
-                                    <strong>Live backend route</strong>
-                                    <p>POST /train/model remains the source of truth for this panel.</p>
-                                </div>
-                                <div class="placeholder-card">
-                                    <strong>Planned later</strong>
-                                    <p>Multi-model comparisons and algorithm-specific tuning stay placeholder-only for now.</p>
-                                </div>
+                        <div id="model-lab-run-controls-slot" class="model-run-settings-controls"></div>
+                        <div class="model-run-settings-footer">
+                            <button
+                                type="button"
+                                id="btn-confirm-training-settings"
+                                class="primary-button"
+                                onclick="confirmTrainingSettings()"
+                            >
+                                Confirm Training Setting
+                            </button>
+                            <p id="train-settings-status" class="inline-status tone-neutral">
+                                Training Overview is synced to the live general setting values.
+                            </p>
+                        </div>
+                    </article>
+
+                    <article class="panel model-run-card model-run-card-training">
+                        <div class="model-run-training-header">
+                            <div>
+                                <h3>Step 2: Run Training</h3>
+                                <p class="model-run-result-copy">
+                                    Run the selected model families, review the champion details here, then open the detailed result screen.
+                                </p>
                             </div>
                         </div>
-                    </div>
+
+                        <div class="model-run-training-footer">
+                            <div id="model-lab-run-runtime-slot" class="model-run-runtime-stack"></div>
+                            <div class="model-run-insight-grid">
+                                <div class="result-detail-panel model-run-insight-panel model-run-insight-panel-champion">
+                                    <div class="model-run-insight-head">
+                                        <span class="model-run-insight-kicker">Winner</span>
+                                        <h4>Champion Model Details</h4>
+                                        <p class="model-run-insight-copy">
+                                            Review the latest winning model, its speed, and the core metrics that made it win.
+                                        </p>
+                                    </div>
+                                    <div id="model-lab-run-champion-slot" class="summary-grid summary-grid-tight model-run-insight-cards"></div>
+                                </div>
+                                <div class="result-detail-panel model-run-insight-panel model-run-insight-panel-hyperparams">
+                                    <div class="model-run-insight-head">
+                                        <span class="model-run-insight-kicker">Tuning</span>
+                                        <h4>Champion Hyperparameters</h4>
+                                        <p class="model-run-insight-copy">
+                                            Review the best parameter set returned for the current champion model.
+                                        </p>
+                                    </div>
+                                    <div id="model-lab-run-hyperparams-slot" class="model-run-param-list"></div>
+                                </div>
+                            </div>
+                            <div class="action-row model-run-training-actions">
+                                <div id="model-lab-run-action-slot" class="model-run-action-slot"></div>
+                                <button
+                                    type="button"
+                                    id="btn-view-training-results"
+                                    class="secondary-button is-disabled"
+                                    data-disabled-title="Complete training first."
+                                    title="Complete training first."
+                                    disabled
+                                    onclick="showModelLabStep('result')"
+                                >
+                                    Open View Results
+                                </button>
+                            </div>
+                        </div>
+                    </article>
                 </div>
-            </article>
+
+                <div class="model-load-divider" aria-hidden="true">
+                    <span>Preview Workspace</span>
+                </div>
+
+                <div class="model-run-preview-grid">
+                    <article class="panel stage-card model-run-overview-card">
+                        <div class="panel-header">
+                            <div>
+                                <span class="stage-index">A.</span>
+                                <h3>Training Overview</h3>
+                                <p>Review the active training setting values and the projected train/test split counts.</p>
+                            </div>
+                        </div>
+                        <div id="model-lab-run-training-overview-slot" class="summary-grid summary-grid-tight model-run-overview-cards"></div>
+                    </article>
+                    <article class="panel stage-card model-run-leaderboard-card">
+                        <div class="panel-header">
+                            <div>
+                                <span class="stage-index">B.</span>
+                                <h3>Model Run Comparison</h3>
+                                <p>Compare the latest selected models in a simple table of runtime and core metrics.</p>
+                            </div>
+                        </div>
+                        <div id="model-lab-run-leaderboard" class="table-shell table-shell-large model-run-showcase-shell"></div>
+                    </article>
+                </div>
+            </div>
         </div>
         <div id="model-step-result" class="model-step-view hidden">
             <div class="model-grid-result">
@@ -307,8 +490,8 @@ function buildModelLabWorkspace() {
                     <div class="panel-header">
                         <div>
                             <span class="stage-index">B.</span>
-                            <h3>Other Models Preview</h3>
-                            <p>Historical models from the database appear here after at least two runs exist.</p>
+                            <h3>Model Comparison</h3>
+                            <p>Current training candidates appear here with their latest metrics and top rankings.</p>
                         </div>
                     </div>
                     <div id="historical-models-preview" class="table-shell table-shell-large"></div>
@@ -322,10 +505,14 @@ function buildModelLabWorkspace() {
     moveNodeToSlot(document.getElementById("train-upload-status"), "model-lab-load-status-slot");
     moveNodeToSlot(document.getElementById("uploaded-train-preview"), "model-lab-load-preview-slot");
     moveNodeToSlot(document.querySelector("#train-section .input-grid"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.querySelector("#train-section .workflow-grid .step-card:nth-of-type(2) .action-row"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.getElementById("time-details"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.getElementById("progress-bar-container-train"), "model-lab-run-controls-slot");
-    moveNodeToSlot(document.getElementById("training-metric-cards"), "model-lab-run-metrics-slot");
+    moveNodeToSlot(
+        document.querySelector(
+            "#train-section .workflow-grid .step-card:nth-of-type(2) .action-row .primary-button"
+        ),
+        "model-lab-run-action-slot"
+    );
+    moveNodeToSlot(document.getElementById("time-details"), "model-lab-run-runtime-slot");
+    moveNodeToSlot(document.getElementById("progress-bar-container-train"), "model-lab-run-runtime-slot");
     moveNodeToSlot(document.getElementById("btn-proceed-inference"), "model-lab-result-action-slot");
     moveNodeToSlot(document.getElementById("training-details-preview"), "model-lab-result-split-slot");
     moveNodeToSlot(document.getElementById("metrics-details-preview"), "model-lab-result-metrics-slot");
@@ -420,6 +607,95 @@ function normalizeFeatureImportanceRows(data) {
     return rows.filter((row) => row && typeof row === "object" && !Array.isArray(row));
 }
 
+function normalizeTrainingModelResults(data) {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    return data
+        .filter((row) => row && typeof row === "object" && !Array.isArray(row))
+        .map((row) => ({
+            strModelName:
+                row.strModelName ||
+                row.Model ||
+                row.ModelName ||
+                row.Name ||
+                "Current backend pipeline",
+            boolIsChampion: Boolean(row.boolIsChampion),
+            fltGridScore: Number(row.fltGridScore) || 0,
+            fltTimeTaken: Number(row.fltTimeTaken) || 0,
+            dicBestParams:
+                row.dicBestParams && typeof row.dicBestParams === "object"
+                    ? row.dicBestParams
+                    : {},
+            objMetrics: normalizeTableData(row.objMetrics)[0] || {},
+            objConfusionMatrix: normalizeTableData(row.objConfusionMatrix)[0] || {},
+            tblFeatureImportance: normalizeFeatureImportanceRows(row.tblFeatureImportance),
+        }));
+}
+
+function sortTrainingModelResults(results) {
+    return [...normalizeTrainingModelResults(results)].sort((left, right) => {
+        const championDelta = Number(Boolean(right.boolIsChampion)) - Number(Boolean(left.boolIsChampion));
+        if (championDelta !== 0) {
+            return championDelta;
+        }
+
+        const f1Delta =
+            (Number(right.objMetrics?.fltF1) || 0) - (Number(left.objMetrics?.fltF1) || 0);
+        if (f1Delta !== 0) {
+            return f1Delta;
+        }
+
+        const accuracyDelta =
+            (Number(right.objMetrics?.fltAccuracy) || 0) -
+            (Number(left.objMetrics?.fltAccuracy) || 0);
+        if (accuracyDelta !== 0) {
+            return accuracyDelta;
+        }
+
+        return (Number(right.fltGridScore) || 0) - (Number(left.fltGridScore) || 0);
+    });
+}
+
+function formatModelParams(params) {
+    if (!params || typeof params !== "object" || Array.isArray(params)) {
+        return "Backend-defined";
+    }
+
+    const entries = Object.entries(params);
+    if (!entries.length) {
+        return "Backend-defined";
+    }
+
+    return entries
+        .map(([key, value]) => `${key}=${formatTableValue(value)}`)
+        .join(", ");
+}
+
+function buildTrainingComparisonRows(modelResults) {
+    return sortTrainingModelResults(modelResults).map((result, index) => ({
+        Rank: index + 1,
+        "Model Name": result.strModelName,
+        Accuracy: formatSummaryValue("fltAccuracy", Number(result.objMetrics?.fltAccuracy) || 0),
+        Precision: formatSummaryValue("fltPrecision", Number(result.objMetrics?.fltPrecision) || 0),
+        Recall: formatSummaryValue("fltRecall", Number(result.objMetrics?.fltRecall) || 0),
+        F1: formatSummaryValue("fltF1", Number(result.objMetrics?.fltF1) || 0),
+        "Training Speed": formatRuntimeSeconds(result.fltTimeTaken),
+    }));
+}
+
+function buildTrainingFeatureRows(modelResults) {
+    return sortTrainingModelResults(modelResults).flatMap((result) =>
+        normalizeFeatureImportanceRows(result.tblFeatureImportance).map((row) => ({
+            Model: result.strModelName,
+            Rank: firstDefinedValue(row, ["intRank", "Rank"]) || "",
+            Feature: firstDefinedValue(row, ["strFeatureName", "Feature", "FeatureName"]) || "",
+            Importance: Number(firstDefinedValue(row, ["fltImportance", "Importance", "Score"])) || 0,
+        }))
+    );
+}
+
 function toNumber(id, fallbackValue) {
     const rawValue = document.getElementById(id)?.value;
     const parsedValue = Number(rawValue);
@@ -443,13 +719,28 @@ function buildMetadataLine(timeTaken, dateCreated) {
     const fragments = [];
 
     if (timeTaken !== undefined && timeTaken !== null && timeTaken !== "") {
-        fragments.push(`Runtime ${Number(timeTaken).toFixed(2)} seconds`);
+        fragments.push(`Runtime ${formatRuntimeSeconds(timeTaken)}`);
     }
     if (dateCreated) {
         fragments.push(`Logged ${formatDateTime(dateCreated)}`);
     }
 
     return fragments.join(" | ");
+}
+
+function formatRuntimeSeconds(value) {
+    const parsedValue = Number(value);
+    if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        return "N/A";
+    }
+
+    if (parsedValue >= 60) {
+        const minutes = Math.floor(parsedValue / 60);
+        const seconds = parsedValue % 60;
+        return `${minutes}m ${seconds.toFixed(2)}s`;
+    }
+
+    return `${parsedValue.toFixed(2)}s`;
 }
 
 function showAppNotice(message, tone = "neutral") {
@@ -496,6 +787,16 @@ function setButtonEnabled(buttonId, enabled) {
     } else if (button.dataset.disabledTitle) {
         button.title = button.dataset.disabledTitle;
     }
+}
+
+function setTrainingResultsButtonTone(isReady) {
+    const button = document.getElementById("btn-view-training-results");
+    if (!button) {
+        return;
+    }
+
+    button.classList.toggle("primary-button", Boolean(isReady));
+    button.classList.toggle("secondary-button", !isReady);
 }
 
 function startProgress(spinnerId, containerId, barId, labelId) {
@@ -560,6 +861,18 @@ async function fetchJson(url, options = {}, fallbackError = "Request failed.") {
     return data;
 }
 
+function getSelectedTrainingModelIds() {
+    return TRAINING_MODEL_OPTIONS
+        .filter((option) => document.getElementById(option.inputId)?.checked)
+        .map((option) => option.id);
+}
+
+function getSelectedTrainingModelLabels() {
+    return TRAINING_MODEL_OPTIONS
+        .filter((option) => document.getElementById(option.inputId)?.checked)
+        .map((option) => option.label);
+}
+
 async function uploadCSV(type) {
     const config = API_CONFIG[type];
     const fileInput = document.getElementById(config?.inputId);
@@ -597,7 +910,19 @@ async function uploadCSV(type) {
             UI_STATE.trainingRows = rows;
             UI_STATE.lastTrainingResponse = null;
             UI_STATE.trainingColumnInclusion = {};
+            UI_STATE.trainingSettingsConfirmed = false;
             renderTrainingDatasetProfile(rows);
+            renderTrainingRunShowcase([]);
+            renderRunStepChampionDetails(null);
+            renderRunStepChampionHyperparameters(null);
+            setButtonEnabled("btn-view-training-results", false);
+            setTrainingResultsButtonTone(false);
+            refreshTrainingSettingsStatus();
+
+            const timeDetails = document.getElementById("time-details");
+            if (timeDetails) {
+                timeDetails.textContent = "No completed training run yet.";
+            }
         } else if (type === "score") {
             UI_STATE.scoringRows = rows;
         }
@@ -632,6 +957,7 @@ async function uploadCSV(type) {
 
 function getTrainingRequestBody() {
     const profile = buildDatasetProfile(UI_STATE.trainingRows);
+    const selectedModels = getSelectedTrainingModelIds();
     const selectedColumns = profile
         ? profile.reviewRows
             .filter(
@@ -641,26 +967,53 @@ function getTrainingRequestBody() {
             .map((row) => row.columnName)
         : [];
 
+    if (!selectedModels.length) {
+        throw new Error("Select at least one model family before starting training.");
+    }
+
     return {
         intRandomState: toNumber("train-random-state", 0),
+        fltTTSplit: toNumber("train-train-test-split", 0.7),
+        intCrossFold: toNumber("train-cross-fold", 5),
+        intPrimaryMetric: toNumber("train-primary-metric", 1),
         intTopFeats: toNumber("train-top-feats", 20),
-        fltF1: toNumber("train-f1-threshold", 1),
+        fltF1: 1,
+        lisintModels: selectedModels,
         lisstrFeats: selectedColumns,
         strFeatTarget: profile?.targetColumn || "",
     };
 }
 
 async function trainModel() {
+    let requestBody;
+    try {
+        requestBody = getTrainingRequestBody();
+    } catch (error) {
+        setStatusMessage(
+            "train-upload-status",
+            error.message || "Unable to start training.",
+            "danger"
+        );
+        showAppNotice(error.message || "Unable to start training.", "danger");
+        return;
+    }
+
     const progress = startProgress(
         "loading-spinner-training-details-preview",
         "progress-bar-container-train",
         "progress-bar-train",
         "progress-label-train"
     );
-    const timeDetails = document.getElementById("time-details");
-    const featureImportancePreview = document.getElementById("feature-importance-preview");
 
-    showAppNotice("Training model with the current backend route...", "neutral");
+    const selectedModelLabel =
+        requestBody.lisintModels.length === 1
+            ? "selected model family"
+            : "selected model families";
+    setStatusMessage("train-upload-status", "Training selected model families...", "neutral");
+    showAppNotice(
+        `Training ${requestBody.lisintModels.length} ${selectedModelLabel}...`,
+        "neutral"
+    );
 
     try {
         const data = await fetchJson(
@@ -670,7 +1023,7 @@ async function trainModel() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(getTrainingRequestBody()),
+                body: JSON.stringify(requestBody),
             },
             "Model training failed."
         );
@@ -678,40 +1031,17 @@ async function trainModel() {
         stopProgress(progress, true);
         UI_STATE.lastTrainingResponse = data;
 
-        renderKeyValueCards(data.objMetrics, "training-metric-cards");
-        renderMetricGrid(
-            data.objDatasetSplit,
-            "training-details-preview",
-            "No dataset split available."
-        );
-        renderMetricGrid(data.objMetrics, "metrics-details-preview", "No model metrics available.");
-        renderMetricGrid(
-            data.objConfusionMatrix,
-            "confusion-metrix-details-preview",
-            "No confusion matrix available."
-        );
-
-        timeDetails.textContent =
-            buildMetadataLine(data.timeTaken, data.dateCreated) ||
-            "Training completed.";
-
-        const featureImportanceRows = normalizeFeatureImportanceRows(data.tblFeatureImportance);
-
-        if (featureImportanceRows.length > 0) {
-            displayTable(
-                featureImportanceRows,
-                "feature-importance-preview",
-                "No feature importance output available."
-            );
-        } else if (featureImportancePreview) {
-            featureImportancePreview.innerHTML =
-                '<p class="empty-state">The current backend training response does not provide feature importance yet.</p>';
+        try {
+            await loadModelHistory(true);
+        } catch (historyError) {
+            console.error("Model history refresh error:", historyError);
         }
 
-        renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
-        renderLatestTrainingResultSummary(data);
-        await loadModelHistory(true);
+        renderTrainingRunOutputs(data);
         setButtonEnabled("btn-proceed-inference", true);
+        setButtonEnabled("btn-view-training-results", true);
+        setTrainingResultsButtonTone(true);
+        refreshTrainingSettingsStatus();
         setStatusMessage(
             "train-upload-status",
             "Training finished. The scoring workspace is now unlocked.",
@@ -719,9 +1049,9 @@ async function trainModel() {
         );
         setStageStatus("stage-train-status", "Model trained", "success");
         setStageStatus("stage-score-status", "Ready for scoring", "neutral");
-        showModelLabStep("result");
+        showModelLabStep("run");
         showAppNotice(
-            "Training finished. Review the result pane, then move to scoring.",
+            "Training finished. Review the champion board, then move to results or scoring.",
             "success"
         );
     } catch (error) {
@@ -736,10 +1066,65 @@ async function trainModel() {
     }
 }
 
+function renderTrainingRunOutputs(data) {
+    const timeDetails = document.getElementById("time-details");
+    const featureImportancePreview = document.getElementById("feature-importance-preview");
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
+    const comparisonRows = buildTrainingComparisonRows(modelResults);
+    const featureRows = buildTrainingFeatureRows(modelResults);
+    const bestModelName = data.strBestModelName || "Latest run";
+    const metadataLine = buildMetadataLine(data.timeTaken, data.dateCreated);
+
+    renderTrainingRunShowcase(modelResults);
+    renderRunStepChampionDetails(data);
+    renderMetricGrid(
+        data.objDatasetSplit,
+        "training-details-preview",
+        "No dataset split available."
+    );
+    renderMetricGrid(data.objMetrics, "metrics-details-preview", "No model metrics available.");
+    renderMetricGrid(
+        data.objConfusionMatrix,
+        "confusion-metrix-details-preview",
+        "No confusion matrix available."
+    );
+
+    if (timeDetails) {
+        timeDetails.textContent = metadataLine
+            ? `${metadataLine} Champion: ${bestModelName}.`
+            : `Training completed. Champion: ${bestModelName}.`;
+    }
+
+    if (comparisonRows.length > 0) {
+        displayTable(
+            comparisonRows,
+            "historical-models-preview",
+            "No model comparison output available."
+        );
+    }
+
+    if (featureRows.length > 0) {
+        displayTable(
+            featureRows,
+            "feature-importance-preview",
+            "No feature importance output available."
+        );
+    } else if (featureImportancePreview) {
+        featureImportancePreview.innerHTML =
+            '<p class="empty-state">The current backend training response does not provide feature importance yet.</p>';
+    }
+
+    renderTrainingDatasetProfile(UI_STATE.trainingRows, data.objDatasetSplit);
+    renderRunStepChampionHyperparameters(data);
+    renderLatestTrainingResultSummary(data);
+}
+
 function renderTrainingDatasetProfile(rows, datasetSplit = null) {
     const records = normalizeTableData(rows);
     const profile = buildDatasetProfile(records);
     const summaryContainer = document.getElementById("train-dataset-summary");
+
+    renderRunStepTrainingOverview(profile, datasetSplit);
 
     if (!summaryContainer) {
         return;
@@ -802,6 +1187,71 @@ function renderTrainingDatasetProfile(rows, datasetSplit = null) {
                 : "Choose a target feature in Step 2 to label it in the review panes."
         )
     );
+}
+
+function renderRunStepTrainingOverview(profile, datasetSplit = null) {
+    const container = document.getElementById("model-lab-run-training-overview-slot");
+    if (!container) {
+        return;
+    }
+
+    void datasetSplit;
+    container.innerHTML = "";
+
+    const randomState = document.getElementById("train-random-state")?.value?.trim() || "None";
+    const splitRatio = Math.min(Math.max(toNumber("train-train-test-split", 0.7), 0), 1);
+    const crossFold = document.getElementById("train-cross-fold")?.value?.trim() || "None";
+    const primaryMetric =
+        document
+            .getElementById("train-primary-metric")
+            ?.selectedOptions?.[0]
+            ?.textContent?.trim() || "None";
+    const topFeatures = document.getElementById("train-top-feats")?.value?.trim() || "None";
+
+    let trainTestValue = "None";
+    let trainTestDescription = "Defaults to none until training rows are available.";
+
+    if (profile && Number.isFinite(profile.rowCount) && profile.rowCount > 0) {
+        const projectedTrainRows = Math.round(profile.rowCount * splitRatio);
+        const projectedTestRows = Math.max(profile.rowCount - projectedTrainRows, 0);
+        trainTestValue = `${projectedTrainRows.toLocaleString()} / ${projectedTestRows.toLocaleString()}`;
+        trainTestDescription = "Projected from the current train/test split in General Setting.";
+    }
+
+    [
+        {
+            label: "Random State",
+            value: randomState,
+            description: "Current seed that will be sent with the training request.",
+        },
+        {
+            label: "Train / Test Split Ratio",
+            value: `${splitRatio.toFixed(2)} train / ${(1 - splitRatio).toFixed(2)} test`,
+            description: "Current ratio staged in Step 1: General Setting.",
+        },
+        {
+            label: "Train / Test Split Count",
+            value: trainTestValue,
+            description: trainTestDescription,
+        },
+        {
+            label: "Cross Validation",
+            value: crossFold,
+            description: "Current cross-fold value from the training configuration.",
+        },
+        {
+            label: "Scoring Metric",
+            value: primaryMetric,
+            description: "Current backend ranking metric for model comparison.",
+        },
+        {
+            label: "Top Feat Count Scoring",
+            value: topFeatures,
+            description: "Current feature-importance cutoff in the training request.",
+        },
+    ].forEach((card) => {
+        container.appendChild(buildSummaryCard(card.label, card.value, card.description));
+    });
 }
 
 function renderTrainingFeatureTable(fields) {
@@ -949,6 +1399,7 @@ function handleTrainingTargetChange(value) {
         UI_STATE.trainingRows,
         UI_STATE.lastTrainingResponse?.objDatasetSplit || null
     );
+    refreshTrainingSettingsStatus();
 }
 
 function handleTrainingIncludeToggle(columnName, includeInTraining) {
@@ -966,6 +1417,7 @@ function handleTrainingIncludeToggle(columnName, includeInTraining) {
         UI_STATE.trainingRows,
         UI_STATE.lastTrainingResponse?.objDatasetSplit || null
     );
+    refreshTrainingSettingsStatus();
 }
 
 function renderLoadStepReadiness(profile) {
@@ -1293,12 +1745,115 @@ function isFiniteNumberish(value) {
 function renderTrainingResultPlaceholders() {
     renderTrainingFeatureTable([]);
     renderTrainingDatasetProfile([], null);
+    renderTrainingRunShowcase([]);
+    renderRunStepChampionDetails(null);
+    renderRunStepChampionHyperparameters(null);
+    setButtonEnabled("btn-view-training-results", false);
+    setTrainingResultsButtonTone(false);
+    refreshTrainingSettingsStatus();
     renderBestModelPlaceholder(
         "Run training or load historical model data to populate this view."
     );
     renderHistoricalModelsPlaceholder(
         "No additional historical models are available yet."
     );
+}
+
+function renderRunStepChampionDetails(data) {
+    const container = document.getElementById("model-lab-run-champion-slot");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!data) {
+        container.appendChild(
+            buildSummaryCard(
+                "Champion",
+                "Pending run",
+                "Train the selected model families to populate the winning model details."
+            )
+        );
+        return;
+    }
+
+    const metrics = normalizeTableData(data.objMetrics)[0] || {};
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
+    const championResult = modelResults.find((row) => row.boolIsChampion) || modelResults[0] || null;
+    const championRuntime = championResult ? championResult.fltTimeTaken : data.timeTaken;
+
+    container.appendChild(
+        buildSummaryCard(
+            "Champion",
+            data.strBestModelName || "Latest run",
+            modelResults.length
+                ? `Selected from ${modelResults.length} trained candidate models.`
+                : "Directly returned by the training endpoint."
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Training Speed",
+            formatRuntimeSeconds(championRuntime),
+            "Elapsed time for the winning model candidate."
+        )
+    );
+    container.appendChild(
+        buildSummaryCard("F1", formatSummaryValue("fltF1", metrics.fltF1), "Primary score from the latest run.")
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Accuracy",
+            formatSummaryValue("fltAccuracy", metrics.fltAccuracy),
+            "Overall accuracy from the winning model."
+        )
+    );
+    container.appendChild(
+        buildSummaryCard(
+            "Precision / Recall",
+            `${formatSummaryValue("fltPrecision", metrics.fltPrecision)} / ${formatSummaryValue("fltRecall", metrics.fltRecall)}`,
+            "Positive class precision and recall for the current champion."
+        )
+    );
+}
+
+function renderRunStepChampionHyperparameters(data) {
+    const container = document.getElementById("model-lab-run-hyperparams-slot");
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!data) {
+        container.innerHTML =
+            '<p class="empty-state">Train the selected model families to reveal the champion hyperparameters.</p>';
+        return;
+    }
+
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
+    const championResult = modelResults.find((row) => row.boolIsChampion) || modelResults[0] || null;
+    const championParams =
+        championResult?.dicBestParams && typeof championResult.dicBestParams === "object"
+            ? Object.entries(championResult.dicBestParams)
+            : [];
+
+    if (!championParams.length) {
+        container.innerHTML =
+            '<p class="empty-state">No champion hyperparameters were returned by the backend for this run.</p>';
+        return;
+    }
+
+    championParams.forEach(([key, value]) => {
+        const row = document.createElement("div");
+        row.className = "model-run-param-row";
+        row.innerHTML = `
+            <span class="model-run-param-key">${escapeHtml(humanizeLabel(key))}</span>
+            <strong class="model-run-param-value">${escapeHtml(formatTableValue(value))}</strong>
+        `;
+        container.appendChild(row);
+    });
 }
 
 function renderLatestTrainingResultSummary(data) {
@@ -1314,8 +1869,16 @@ function renderLatestTrainingResultSummary(data) {
         "Training completed.";
 
     const metrics = normalizeTableData(data.objMetrics)[0] || {};
+    const bestModelName = data.strBestModelName || "Latest run";
+    const modelResults = normalizeTrainingModelResults(data.tblModelResults);
     container.appendChild(
-        buildSummaryCard("Source", "Latest run", "Directly returned by the training endpoint.")
+        buildSummaryCard(
+            "Champion",
+            bestModelName,
+            modelResults.length
+                ? `Selected from ${modelResults.length} trained candidate models.`
+                : "Directly returned by the training endpoint."
+        )
     );
     container.appendChild(
         buildSummaryCard("F1", formatSummaryValue("fltF1", metrics.fltF1), "Primary score from the latest run.")
@@ -1374,7 +1937,6 @@ async function loadModelHistory(force = false) {
 
 function renderHistoricalTrainingResults(rows) {
     const records = normalizeTableData(rows);
-
     if (!records.length) {
         if (!UI_STATE.lastTrainingResponse) {
             renderBestModelPlaceholder(
@@ -1409,20 +1971,7 @@ function renderHistoricalTrainingResults(rows) {
 }
 
 function selectBestModelRecord(rows) {
-    return [...normalizeTableData(rows)].sort((left, right) => {
-        const f1Delta = (Number(right.F1) || 0) - (Number(left.F1) || 0);
-        if (f1Delta !== 0) {
-            return f1Delta;
-        }
-
-        const accuracyDelta =
-            (Number(right.Accuracy) || 0) - (Number(left.Accuracy) || 0);
-        if (accuracyDelta !== 0) {
-            return accuracyDelta;
-        }
-
-        return new Date(right.meta_DateCreated || 0) - new Date(left.meta_DateCreated || 0);
-    })[0];
+    return sortModelRecords(rows)[0];
 }
 
 function renderBestModelFromHistory(row, totalRuns) {
@@ -1520,6 +2069,130 @@ function renderHistoricalModelsPlaceholder(message) {
     }
 
     container.innerHTML = `<p class="empty-state">${escapeHtml(message)}</p>`;
+}
+
+function renderTrainingRunShowcase(modelResults) {
+    const container = document.getElementById("model-lab-run-leaderboard");
+    if (!container) {
+        return;
+    }
+
+    const comparisonRows = buildTrainingComparisonRows(modelResults);
+    if (!comparisonRows.length) {
+        container.innerHTML =
+            '<p class="empty-state">Select the model families in General Setting, then start training to compare runtime and metrics here.</p>';
+        return;
+    }
+
+    displayTable(
+        comparisonRows,
+        "model-lab-run-leaderboard",
+        "No model comparison output available."
+    );
+}
+
+function buildLiveTrainingParamsLabel() {
+    const params = [];
+    const randomState = document.getElementById("train-random-state")?.value;
+    const splitRatio = document.getElementById("train-train-test-split")?.value;
+    const crossFold = document.getElementById("train-cross-fold")?.value;
+    const primaryMetric = document.getElementById("train-primary-metric");
+    const topFeatures = document.getElementById("train-top-feats")?.value;
+    const selectedModels = getSelectedTrainingModelLabels();
+    const primaryMetricLabel = primaryMetric?.selectedOptions?.[0]?.textContent?.trim();
+
+    if (randomState) {
+        params.push(`Random=${randomState}`);
+    }
+    if (splitRatio) {
+        params.push(`Split=${splitRatio}`);
+    }
+    if (crossFold) {
+        params.push(`CV=${crossFold}`);
+    }
+    if (primaryMetricLabel) {
+        params.push(`Metric=${primaryMetricLabel}`);
+    }
+    if (topFeatures) {
+        params.push(`TopFeats=${topFeatures}`);
+    }
+    if (selectedModels.length) {
+        params.push(`Models=${selectedModels.join(", ")}`);
+    }
+
+    return params.join(" | ") || "Current backend pipeline";
+}
+
+function formatLeaderboardMetricValue(key, value) {
+    if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+        return formatSummaryValue(key, Number(value));
+    }
+
+    return formatSummaryValue(key, value);
+}
+
+function resolveLeaderboardModelName(row) {
+    return (
+        firstDefinedValue(row, [
+            "Model",
+            "ModelName",
+            "Algorithm",
+            "ModelType",
+            "ModelFamily",
+            "Estimator",
+            "Name",
+        ]) || "Current backend pipeline"
+    );
+}
+
+function resolveLeaderboardModelParams(row) {
+    const value = firstDefinedValue(row, [
+        "ModelParams",
+        "Params",
+        "ModelParameters",
+        "Hyperparameters",
+        "HyperParameters",
+        "Parameters",
+    ]);
+
+    if (value === null || value === undefined || value === "") {
+        return "Backend-defined";
+    }
+
+    if (typeof value === "object") {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+}
+
+function firstDefinedValue(row, keys) {
+    for (const key of keys) {
+        if (row && row[key] !== undefined && row[key] !== null && row[key] !== "") {
+            return row[key];
+        }
+    }
+    return null;
+}
+
+function sortModelRecords(rows) {
+    return [...normalizeTableData(rows)].sort((left, right) => {
+        const f1Delta =
+            (Number(firstDefinedValue(right, ["F1", "fltF1"])) || 0) -
+            (Number(firstDefinedValue(left, ["F1", "fltF1"])) || 0);
+        if (f1Delta !== 0) {
+            return f1Delta;
+        }
+
+        const accuracyDelta =
+            (Number(firstDefinedValue(right, ["Accuracy", "fltAccuracy"])) || 0) -
+            (Number(firstDefinedValue(left, ["Accuracy", "fltAccuracy"])) || 0);
+        if (accuracyDelta !== 0) {
+            return accuracyDelta;
+        }
+
+        return new Date(right.meta_DateCreated || 0) - new Date(left.meta_DateCreated || 0);
+    });
 }
 
 async function inferenceModel() {
