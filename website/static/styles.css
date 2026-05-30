@@ -1588,17 +1588,19 @@ body::before,
 
 .model-run-workspace,
 .model-run-top-grid,
+.model-run-preview-grid,
 .model-run-card,
 .model-run-settings-controls,
 .model-run-training-footer,
 .model-run-runtime-stack,
+.model-run-overview-card,
 .model-run-leaderboard-card {
     display: grid;
     gap: 1rem;
 }
 
 .model-run-top-grid {
-    grid-template-columns: minmax(250px, 0.78fr) minmax(0, 2.2fr) minmax(210px, 0.62fr);
+    grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.9fr);
     align-items: stretch;
 }
 
@@ -1653,20 +1655,202 @@ body::before,
     min-width: 0;
 }
 
-.model-run-card-training .action-row {
-    justify-content: flex-end;
+.model-run-settings-footer {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: auto;
+}
+
+.model-run-settings-footer .primary-button,
+.model-run-settings-footer .secondary-button {
+    width: 100%;
+}
+
+.model-run-settings-footer .inline-status {
+    min-height: 1.5rem;
+}
+
+.model-run-insight-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.model-run-insight-panel {
+    display: grid;
+    gap: 1rem;
+    height: 100%;
+    padding: 1.15rem;
+    border-radius: 24px;
+    overflow: hidden;
+}
+
+.model-run-insight-panel-dataset {
+    border-color: rgba(37, 103, 104, 0.16);
+    background:
+        radial-gradient(circle at top right, rgba(37, 103, 104, 0.12), transparent 28%),
+        linear-gradient(180deg, rgba(243, 249, 248, 0.96), rgba(255, 255, 255, 0.9));
+}
+
+.model-run-overview-card {
+    padding: 1rem;
+    background:
+        radial-gradient(circle at top right, rgba(37, 103, 104, 0.12), transparent 26%),
+        linear-gradient(180deg, rgba(243, 249, 248, 0.96), rgba(255, 255, 255, 0.92));
+}
+
+.model-run-insight-panel-champion {
+    border-color: rgba(216, 108, 61, 0.18);
+    background:
+        radial-gradient(circle at top right, rgba(216, 108, 61, 0.14), transparent 30%),
+        linear-gradient(180deg, rgba(253, 247, 242, 0.98), rgba(255, 255, 255, 0.92));
+}
+
+.model-run-insight-panel-hyperparams {
+    border-color: rgba(29, 72, 113, 0.16);
+    background:
+        radial-gradient(circle at top right, rgba(29, 72, 113, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(243, 247, 252, 0.98), rgba(255, 255, 255, 0.92));
+}
+
+.model-run-insight-head {
+    display: grid;
+    gap: 0.38rem;
+}
+
+.model-run-insight-kicker {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    padding: 0.28rem 0.62rem;
+    border-radius: 999px;
+    background: rgba(20, 55, 84, 0.08);
+    color: var(--accent-deep);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.model-run-insight-copy {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.model-run-insight-cards {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-content: start;
+}
+
+.model-run-insight-panel .summary-card {
+    min-height: 0;
+    padding: 0.95rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.model-run-insight-panel-dataset .summary-card {
+    border-color: rgba(37, 103, 104, 0.14);
+}
+
+.model-run-insight-panel-champion .summary-card {
+    border-color: rgba(216, 108, 61, 0.16);
+    background:
+        linear-gradient(180deg, rgba(255, 248, 243, 0.98), rgba(255, 255, 255, 0.92));
+}
+
+.model-run-insight-panel-champion .summary-card:first-child {
+    grid-column: 1 / -1;
+    border-color: rgba(216, 108, 61, 0.22);
+    background:
+        linear-gradient(135deg, rgba(216, 108, 61, 0.14), rgba(255, 255, 255, 0.96));
+}
+
+.model-run-insight-panel .summary-card strong {
+    color: var(--accent-deep);
+}
+
+.model-run-overview-cards {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-content: start;
+}
+
+.model-run-overview-card .summary-card {
+    min-height: 0;
+    padding: 0.95rem;
+    border-radius: 20px;
+    border-color: rgba(37, 103, 104, 0.14);
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.model-run-overview-card .summary-card strong {
+    color: #215f60;
+}
+
+.model-run-result-stack {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+}
+
+.model-run-param-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.model-run-param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 18px;
+    border: 1px solid rgba(29, 72, 113, 0.14);
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.model-run-param-key {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.model-run-param-value {
+    color: #173f61;
+    font-size: 1rem;
+    text-align: right;
+    word-break: break-word;
 }
 
 .model-run-card-results {
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr;
 }
 
 .model-run-result-actions {
     margin-top: auto;
 }
 
-.model-run-result-actions .secondary-button {
-    width: 100%;
+.model-run-training-actions {
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.model-run-action-slot,
+.model-run-action-slot .action-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.model-run-action-slot .primary-button,
+.model-run-training-actions .secondary-button {
+    width: auto;
 }
 
 .model-run-divider {
@@ -1920,6 +2104,7 @@ tbody tr:hover {
     .model-load-step-grid,
     .model-run-top-grid,
     .tuning-grid,
+    .model-run-insight-grid,
     .model-run-model-metrics,
     .training-preview-layout,
     .result-detail-grid {
@@ -1997,6 +2182,15 @@ tbody tr:hover {
     .model-run-model-top {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .model-run-param-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .model-run-param-value {
+        text-align: left;
     }
 
     .model-run-settings-controls .input-grid {
