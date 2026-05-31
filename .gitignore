@@ -6,3 +6,4 @@ venv
 *.sqlite3
 **/chroma_embeddings/
 instance
+artifacts/
