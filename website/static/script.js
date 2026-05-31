@@ -2735,7 +2735,7 @@ function downloadRowsAsCsv(rows, filename) {
 
     rows.forEach((row) => {
         const values = header.map((key) =>
-            `"${String(row[key] ?? "").replace(/"/g, '""')}"`
+            `"${formatTableValue(row[key]).replace(/"/g, '""')}"`
         );
         csvRows.push(values.join(","));
     });
@@ -2813,6 +2813,10 @@ function formatSummaryValue(key, value) {
         return "N/A";
     }
 
+    if (typeof value === "object") {
+        return JSON.stringify(value);
+    }
+
     return String(value);
 }
 
@@ -2833,6 +2837,10 @@ function formatTableValue(value) {
         return value.toLocaleString(undefined, {
             maximumFractionDigits: 4,
         });
+    }
+
+    if (typeof value === "object") {
+        return JSON.stringify(value);
     }
 
     return String(value);

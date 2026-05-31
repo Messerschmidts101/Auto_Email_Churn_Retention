@@ -1,7 +1,4 @@
-from sqlalchemy import Column, Integer, Boolean, String, Float, Date
-from datetime import date
-import uuid
-import pandas as pd
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, Integer, JSON, String
 from app.db.database import objBase
 
 ########################################################
@@ -85,15 +82,18 @@ class Latest_Emails(objBase):
     Top_3_Feat_Value = Column(String(100), nullable=False)
     Top_3_Feat_Score = Column(Float, nullable=False)
 
-########################################################
-#######                                          #######
-#######         Step 2: Historical Tables        #######
-#######                                          #######
-########################################################
-class Historical_Models(objBase):
-    __tablename__ = 'Historical_Models' 
+
+class Latest_Models(objBase):
+    __tablename__ = 'Latest_Models'
     meta_Id = Column(String(50), primary_key=True)
+    meta_TrainingRunId = Column(String(50), nullable=False)
     meta_DateCreated = Column(Date, nullable=False)
+    meta_TimestampCreated = Column(DateTime, nullable=False)
+    ModelId = Column(Integer, nullable=False)
+    ModelName = Column(String(100), nullable=False)
+    IsChampion = Column(Boolean, nullable=False)
+    GridScore = Column(Float, nullable=False)
+    GridTimeTaken = Column(Float, nullable=False)
     Accuracy = Column(Float, nullable=False)
     Precision = Column(Float, nullable=False)
     Recall = Column(Float, nullable=False)
@@ -106,6 +106,39 @@ class Historical_Models(objBase):
     CountTrainingNegativeClass = Column(Integer, nullable=False)
     CountTestPositiveClass = Column(Integer, nullable=False)
     CountTestNegativeClass = Column(Integer, nullable=False)
+    Hyperparameters = Column(JSON, nullable=False)
+    TrainingSettings = Column(JSON, nullable=False)
+
+########################################################
+#######                                          #######
+#######         Step 2: Historical Tables        #######
+#######                                          #######
+########################################################
+class Historical_Models(objBase):
+    __tablename__ = 'Historical_Models' 
+    meta_Id = Column(String(50), primary_key=True)
+    meta_DateCreated = Column(Date, nullable=False)
+    meta_TrainingRunId = Column(String(50), nullable=False)
+    meta_TimestampCreated = Column(DateTime, nullable=False)
+    ModelId = Column(Integer, nullable=False)
+    ModelName = Column(String(100), nullable=False)
+    IsChampion = Column(Boolean, nullable=False)
+    GridScore = Column(Float, nullable=False)
+    GridTimeTaken = Column(Float, nullable=False)
+    Accuracy = Column(Float, nullable=False)
+    Precision = Column(Float, nullable=False)
+    Recall = Column(Float, nullable=False)
+    F1 = Column(Float, nullable=False)
+    CountTrueNegative = Column(Integer, nullable=False)
+    CountFalsePositive = Column(Integer, nullable=False)
+    CountFalseNegative = Column(Integer, nullable=False)
+    CountTruePositive = Column(Integer, nullable=False)
+    CountTrainingPositiveClass = Column(Integer, nullable=False)
+    CountTrainingNegativeClass = Column(Integer, nullable=False)
+    CountTestPositiveClass = Column(Integer, nullable=False)
+    CountTestNegativeClass = Column(Integer, nullable=False)
+    Hyperparameters = Column(JSON, nullable=False)
+    TrainingSettings = Column(JSON, nullable=False)
 
 class Historical_Training(objBase):
     __tablename__ = 'Historical_Training' 

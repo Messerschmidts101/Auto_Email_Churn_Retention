@@ -10,6 +10,7 @@ from app.db.schema import (
     Historical_Scoring,
     Historical_Training,
     Latest_Emails,
+    Latest_Models,
     Latest_Scored,
     Latest_Scoring,
     Latest_Training,
@@ -28,6 +29,7 @@ TABLE_MODEL_MAP = {
     ("latest", "scoring"): Latest_Scoring,
     ("latest", "scored"): Latest_Scored,
     ("latest", "emails"): Latest_Emails,
+    ("latest", "models"): Latest_Models,
     ("historical", "training"): Historical_Training,
     ("historical", "scoring"): Historical_Scoring,
     ("historical", "scored"): Historical_Scored,
@@ -56,24 +58,22 @@ def run(
     objRequest: DTO_Request_ViewTable = Depends(),
     objDB: Session = Depends(connect_db)
 ) -> DTO_Respond_ViewTable:
-    if objRequest.strTableName == "models" and objRequest.strTableVersion == "latest":
-        rows = (
-            objDB.query(Historical_Models)
-            .order_by(
-                Historical_Models.meta_DateCreated.desc(),
-                Historical_Models.meta_Id.desc(),
-            )
-            .limit(1)
-            .all()
-        )
-    else:
-        objTableModel = TABLE_MODEL_MAP.get(
-            (objRequest.strTableVersion, objRequest.strTableName)
-        )
-        if objTableModel is None:
-            raise HTTPException(status_code=400, detail="Unsupported table request")
+    objTableModel = TABLE_MODEL_MAP.get(
+        (objRequest.strTableVersion, objRequest.strTableName)
+    )
+    if objTableModel is None:
+        raise HTTPException(status_code=400, detail="Unsupported table request")
 
-        rows = objDB.query(objTableModel).all()
+    objQuery = objDB.query(objTableModel)
+    if objRequest.strTableName == "models":
+        rows = objQuery.order_by(
+            objTableModel.meta_TimestampCreated.desc(),
+            objTableModel.meta_DateCreated.desc(),
+            objTableModel.IsChampion.desc(),
+            objTableModel.meta_Id.desc(),
+        ).all()
+    else:
+        rows = objQuery.all()
 
     tblOutput = orm_rows_to_dicts(rows)
 

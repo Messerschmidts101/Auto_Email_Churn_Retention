@@ -12,7 +12,7 @@ from app.routes.api_database import router as database_router
 from app.routes.api_modelling import router as training_router
 from app.routes.api_inference import router as scoring_router
 
-from app.db.database import objEngine, objBase
+from app.db.database import objEngine, objBase, run_model_table_migrations
 
 import time
 
@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
         try:
             app.state.engine = objEngine
             objBase.metadata.create_all(bind=objEngine)
+            run_model_table_migrations()
             boolLoadedDatabase = True
         except Exception as e:
             print(f"❌ Database not loaded at attempt {intRetry}")

@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 
 from ai_ml.b_model.pipeline import build_pipeline_model
 from ai_ml.c_evaluator.transformers import SHAP_Transformer
-from ai_ml.d_orchestrator.train import build_pipeline_models_best
+from ai_ml.d_orchestrator.train import MODEL_NAME_BY_ID, build_pipeline_models_best
 from app.core import config as c
 from app.db.database import connect_db
-from app.db.schema import Historical_Models, Historical_Training, Latest_Training
+from app.db.schema import Historical_Models, Historical_Training, Latest_Models, Latest_Training
 from app.schema.schema import (
     DTO_ConfusionMatrix,
     DTO_DatasetSplit,
@@ -30,6 +30,13 @@ router = APIRouter(
     prefix="/train",
     tags=["train"],
 )
+
+PRIMARY_METRIC_NAME_BY_ID = {
+    1: "f1",
+    2: "accuracy",
+    3: "precision",
+    4: "recall",
+}
 
 def _validate_required_columns(
     tblInput: pd.DataFrame,
@@ -159,22 +166,91 @@ def _build_feature_importance_rows(dic_feature_scores: dict) -> list[DTO_Feature
     ]
 
 
+def _build_training_settings_payload(
+    obj_request: DTO_Request_RunTraining,
+    lisstr_selected_features: list[str],
+    lisint_selected_models: list[int],
+    int_top_feats: int,
+) -> dict[str, object]:
+    return {
+        "intRandomState": int(obj_request.intRandomState),
+        "lisstrFeats": list(lisstr_selected_features),
+        "intFeatureCount": len(lisstr_selected_features),
+        "strFeatTarget": obj_request.strFeatTarget,
+        "lisintModels": list(lisint_selected_models),
+        "lisstrModelNames": [
+            MODEL_NAME_BY_ID.get(int_model_id, f"Model {int_model_id}")
+            for int_model_id in lisint_selected_models
+        ],
+        "fltTTSplit": float(obj_request.fltTTSplit),
+        "intCrossFold": int(obj_request.intCrossFold),
+        "intPrimaryMetric": int(obj_request.intPrimaryMetric),
+        "strPrimaryMetric": PRIMARY_METRIC_NAME_BY_ID.get(
+            obj_request.intPrimaryMetric,
+            "unknown",
+        ),
+        "intTopFeats": int(int_top_feats),
+        "fltRequestedF1": float(obj_request.fltF1),
+    }
+
+
 def _build_model_training_result_dto(
     dic_model_run: dict,
+    str_training_run_id: str,
+    dic_training_settings: dict[str, object],
     str_best_model_name: str,
 ) -> DTO_ModelTrainingResult:
     dic_results = dic_model_run["dicResults"]
     obj_confusion_matrix = dic_results["objConfusionMatrix"]
     return DTO_ModelTrainingResult(
+        intModelId=int(dic_model_run["intModel"]),
         strModelName=dic_model_run["strModelName"],
+        strTrainingRunId=str_training_run_id,
         boolIsChampion=dic_model_run["strModelName"] == str_best_model_name,
         fltGridScore=float(dic_model_run["fltGridScore"]),
         fltTimeTaken=float(dic_model_run["fltGridTimeTaken"]),
         dicBestParams=dic_model_run["dicBestParams"],
+        dicTrainingSettings=dict(dic_training_settings),
         objConfusionMatrix=_build_confusion_matrix_dto(obj_confusion_matrix),
         objMetrics=_build_metrics_dto(dic_results),
         tblFeatureImportance=_build_feature_importance_rows(dic_results["dicFeats"]),
     )
+
+
+def _build_model_record_mapping(
+    dic_model_run: dict,
+    str_training_run_id: str,
+    dt_created: datetime.datetime,
+    dic_training_settings: dict[str, object],
+    str_best_model_name: str,
+) -> dict[str, object]:
+    dic_results = dic_model_run["dicResults"]
+    obj_confusion_matrix = dic_results["objConfusionMatrix"]
+    return {
+        "meta_Id": str(uuid.uuid4()),
+        "meta_TrainingRunId": str_training_run_id,
+        "meta_DateCreated": dt_created.date(),
+        "meta_TimestampCreated": dt_created,
+        "ModelId": int(dic_model_run["intModel"]),
+        "ModelName": dic_model_run["strModelName"],
+        "IsChampion": dic_model_run["strModelName"] == str_best_model_name,
+        "GridScore": float(dic_model_run["fltGridScore"]),
+        "GridTimeTaken": float(dic_model_run["fltGridTimeTaken"]),
+        "Accuracy": float(dic_results["fltAccuracy"]),
+        "Precision": float(dic_results["fltPrecision"]),
+        "Recall": float(dic_results["fltRecall"]),
+        "F1": float(dic_results["fltF1"]),
+        "CountTrueNegative": int(obj_confusion_matrix[0][0]),
+        "CountFalsePositive": int(obj_confusion_matrix[0][1]),
+        "CountFalseNegative": int(obj_confusion_matrix[1][0]),
+        "CountTruePositive": int(obj_confusion_matrix[1][1]),
+        "CountTrainingPositiveClass": int(dic_results["intCountTrainPositiveClass"]),
+        "CountTrainingNegativeClass": int(dic_results["intCountTrainNegativeClass"]),
+        "CountTestPositiveClass": int(dic_results["intCountTestPositiveClass"]),
+        "CountTestNegativeClass": int(dic_results["intCountTestNegativeClass"]),
+        "Hyperparameters": dict(dic_model_run["dicBestParams"]),
+        "TrainingSettings": dict(dic_training_settings),
+    }
 
 
 @router.post(
@@ -272,6 +348,12 @@ def run_training_model(
     )
     lisintSelectedModels = list(dict.fromkeys(objRequest.lisintModels))
     intTopFeats = max(c.intCountFeatsScoring, objRequest.intTopFeats)
+    dicTrainingSettings = _build_training_settings_payload(
+        obj_request=objRequest,
+        lisstr_selected_features=lisstrSelectedFeatures,
+        lisint_selected_models=lisintSelectedModels,
+        int_top_feats=intTopFeats,
+    )
     tblTrainData = tblTrainData[
         lisstrSelectedFeatures + [objRequest.strFeatTarget]
     ].copy()
@@ -317,25 +399,22 @@ def run_training_model(
 
     dicConfusionMatrix = dicResults["objConfusionMatrix"]
     dtCreated = datetime.datetime.now()
-    rowModel = Historical_Models(
-        meta_Id=str(uuid.uuid4()),
-        meta_DateCreated=dtCreated.date(),
-        Accuracy=float(dicResults["fltAccuracy"]),
-        Precision=float(dicResults["fltPrecision"]),
-        Recall=float(dicResults["fltRecall"]),
-        F1=float(dicResults["fltF1"]),
-        CountTrueNegative=int(dicConfusionMatrix[0][0]),
-        CountFalsePositive=int(dicConfusionMatrix[0][1]),
-        CountFalseNegative=int(dicConfusionMatrix[1][0]),
-        CountTruePositive=int(dicConfusionMatrix[1][1]),
-        CountTrainingPositiveClass=int(dicResults["intCountTrainPositiveClass"]),
-        CountTrainingNegativeClass=int(dicResults["intCountTrainNegativeClass"]),
-        CountTestPositiveClass=int(dicResults["intCountTestPositiveClass"]),
-        CountTestNegativeClass=int(dicResults["intCountTestNegativeClass"]),
-    )
+    strTrainingRunId = str(uuid.uuid4())
+    lisdicModelRecords = [
+        _build_model_record_mapping(
+            dic_model_run=dic_model_run,
+            str_training_run_id=strTrainingRunId,
+            dt_created=dtCreated,
+            dic_training_settings=dicTrainingSettings,
+            str_best_model_name=strBestModelName,
+        )
+        for dic_model_run in lisdicModelRuns
+    ]
 
     try:
-        objDB.add(rowModel)
+        objDB.query(Latest_Models).delete(synchronize_session=False)
+        objDB.bulk_insert_mappings(Latest_Models, [dict(dic_row) for dic_row in lisdicModelRecords])
+        objDB.bulk_insert_mappings(Historical_Models, [dict(dic_row) for dic_row in lisdicModelRecords])
         objDB.commit()
     except Exception as exc:
         objDB.rollback()
@@ -346,7 +425,12 @@ def run_training_model(
 
     tblTopFeats = _build_feature_importance_rows(dicResults["dicFeats"])
     tblModelResults = [
-        _build_model_training_result_dto(dic_model_run, strBestModelName)
+        _build_model_training_result_dto(
+            dic_model_run=dic_model_run,
+            str_training_run_id=strTrainingRunId,
+            dic_training_settings=dicTrainingSettings,
+            str_best_model_name=strBestModelName,
+        )
         for dic_model_run in lisdicModelRuns
     ]
     objDatasetSplit = _build_dataset_split_dto(dicResults)
@@ -357,6 +441,7 @@ def run_training_model(
         dicStatus={200: "Success"},
         timeTaken=time_taken,
         dateCreated=dtCreated.isoformat(),
+        strTrainingRunId=strTrainingRunId,
         strBestModelName=strBestModelName,
         objDatasetSplit=objDatasetSplit,
         objConfusionMatrix=objConfusionMatrix,
