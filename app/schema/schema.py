@@ -52,11 +52,14 @@ class DTO_FeatureImportanceRow(BaseModel):
     intRank: int
 
 class DTO_ModelTrainingResult(BaseModel):
+    intModelId: int | None = None
     strModelName: str
+    strTrainingRunId: str | None = None
     boolIsChampion: bool
     fltGridScore: float
     fltTimeTaken: float
     dicBestParams: dict[str, Any]
+    dicTrainingSettings: dict[str, Any] = Field(default_factory=dict)
     objConfusionMatrix: DTO_ConfusionMatrix
     objMetrics: DTO_Metrics
     tblFeatureImportance: list[DTO_FeatureImportanceRow]
@@ -65,6 +68,7 @@ class DTO_Respond_RunTraining(BaseModel):
     dicStatus: dict # sample {500: 'Cant read file'}
     timeTaken: float
     dateCreated: str
+    strTrainingRunId: str | None = None
     strBestModelName: str
 
     objDatasetSplit: DTO_DatasetSplit
